@@ -55,8 +55,12 @@ function save(s: { code: string; token: string } | null): void {
   } catch {}
 }
 
+// A message sent before the connection is open waits here and goes out when it opens.
+const outbox: ClientMessage[] = [];
+
 function send(m: ClientMessage): void {
   if (ws && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify(m));
+  else outbox.push(m);
 }
 
 function connect(): void {
@@ -65,6 +69,7 @@ function connect(): void {
     connected = true;
     const s = saved();
     if (s) send({ type: "resume", code: s.code, token: s.token });
+    for (const m of outbox.splice(0)) send(m);
     render();
   };
   ws.onclose = () => {
