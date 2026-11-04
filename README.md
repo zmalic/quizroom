@@ -95,6 +95,21 @@ game. No personal data is stored: only nicknames, and only while a room lives.
 Put it behind HTTPS and make sure WebSocket connections on `/ws` are allowed.
 The health check is `GET /healthz`.
 
+### Fly.io
+
+`fly.toml` is ready: region Stockholm, one always-on machine with 256 MB.
+
+```sh
+fly apps create <app-name>          # then put the name in fly.toml
+fly secrets set DEMO_EMAIL=... DEMO_PASSWORD=...
+fly deploy --ha=false               # --ha=false: exactly one machine
+fly scale count 1
+fly certs add demo.example.com      # then a CNAME to <app-name>.fly.dev
+```
+
+The deploy workflow in `.github/workflows` starts by hand and needs the
+repository secret `FLY_API_TOKEN` (use `fly tokens create deploy`).
+
 ## Project layout
 
 - `src/server`: HTTP and WebSocket server, rooms and game rules.
