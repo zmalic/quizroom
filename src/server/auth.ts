@@ -54,12 +54,21 @@ export class Accounts {
     return email ? (this.saved.get(email) ?? []) : [];
   }
 
-  /** Keeps a quiz for this account. Returns false when the account has too many. */
-  save(email: string, quiz: Quiz, max: number): boolean {
+  /**
+   * Keeps a quiz for this account. When the account has `max` quizzes the oldest
+   * one is dropped, so saving never fails. The demo account is shared.
+   */
+  save(email: string, quiz: Quiz, max: number): void {
+    const list = [...(this.saved.get(email) ?? []), quiz];
+    this.saved.set(email, list.slice(-max));
+  }
+
+  /** Removes a saved quiz. Returns false when it is not there. */
+  remove(email: string, id: string): boolean {
     const list = this.saved.get(email) ?? [];
-    if (list.length >= max) return false;
-    this.saved.set(email, [...list, quiz]);
-    return true;
+    const next = list.filter((q) => q.id !== id);
+    this.saved.set(email, next);
+    return next.length !== list.length;
   }
 }
 

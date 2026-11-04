@@ -31,7 +31,9 @@ export type ClientMessage =
   | { type: "resume"; code: string; token: string }
   | { type: "start" }
   | { type: "answer"; choice: number }
-  | { type: "next" };
+  | { type: "next" }
+  | { type: "leave" }
+  | { type: "delete-quiz"; id: string };
 
 export interface PlayerView {
   id: string;
@@ -94,5 +96,7 @@ export interface RoomState {
 export type ServerMessage =
   | { type: "hello"; quizzes: QuizInfo[]; auth: { enabled: boolean; user: string | null } }
   | { type: "joined"; token: string; role: "host" | "player" }
+  /** The person is out of the room: they left, or the host closed it. */
+  | { type: "left"; reason: "left" | "closed" }
   | { type: "state"; state: RoomState }
   | { type: "error"; code: string; message: string };

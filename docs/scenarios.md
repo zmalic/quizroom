@@ -54,4 +54,6 @@ One actor. The demo account comes from the server settings `DEMO_EMAIL` and
    password."
 3. Enter the right password. The top bar shows "Signed in as ...".
 4. Create a room with your own quiz and tick "Keep this quiz in my account".
-5. Open "Create a room" again. The quiz appears under "My quizzes".
+5. Click "Close room", then open "Create a room" again. The quiz appears under
+   "My quizzes". Select it and click "Delete this quiz". It disappears from
+   the list.

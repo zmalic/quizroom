@@ -28,9 +28,11 @@ For development: `npm run dev` rebuilds on change. Tests: `npm test`.
    quiz set. You get a 6-character room code and a join link.
 2. Players choose "Join a room" (or open the link), then enter the code and a
    nickname.
-3. The host clicks "Start game". Each question has four answers and a timer.
+3. Anyone can leave with "Leave room". When the host clicks "Close room", the
+   room ends for everyone.
+4. The host clicks "Start game". Each question has four answers and a timer.
    Faster correct answers give more points (1000 down to 500).
-4. After each question everyone sees the correct answer and the leaderboard.
+5. After each question everyone sees the correct answer and the leaderboard.
    The host clicks "Next question". At the end there is a podium.
 
 ## Your own quiz and sign-in
@@ -42,7 +44,8 @@ explains what is wrong before it creates the room.
 A host can sign in to keep quizzes. There is one demo account. Set both
 `DEMO_EMAIL` and `DEMO_PASSWORD` on the server to turn sign-in on. Without them
 there is no sign-in button. Kept quizzes live in memory and are lost when the
-server restarts. Players never need an account.
+server restarts. An account keeps its 10 newest quizzes (saving the 11th drops
+the oldest), and a quiz can be deleted from the create page. Players never need an account.
 
 ## Switches for testing
 

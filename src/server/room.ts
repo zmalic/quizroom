@@ -132,8 +132,25 @@ export class Room {
     return { id: p.id, token: p.token };
   }
 
+  /**
+   * A player leaves. Before the game they are removed from the list. During the
+   * game they stay in the scores, marked as away, so the numbers do not jump.
+   */
+  leave(playerId: string): void {
+    const p = this.players.get(playerId);
+    if (!p) return;
+    if (this.phase === "lobby") {
+      this.players.delete(playerId);
+      this.changed();
+    } else {
+      p.token = ""; // the old session cannot come back
+      this.setConnected({ role: "player", id: playerId }, false);
+    }
+  }
+
   /** Finds who a token belongs to. */
   identify(token: string): { role: "host" } | { role: "player"; id: string } | null {
+    if (!token) return null; // a player who left has an empty token
     if (token === this.hostToken) return { role: "host" };
     for (const p of this.players.values()) if (p.token === token) return { role: "player", id: p.id };
     return null;

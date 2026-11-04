@@ -92,10 +92,16 @@ export class Manager {
         return this.join(client, msg);
       case "resume":
         return this.resume(client, msg);
+      case "delete-quiz":
+        if (!client.user || !this.accounts) throw new RoomError("SIGN_IN_REQUIRED", "Sign in to delete a quiz.");
+        this.accounts.remove(client.user, String(msg.id ?? "").replace(/^mine:/, ""));
+        return this.hello(client);
     }
     const s = this.sessions.get(client);
     if (!s) throw new RoomError("NOT_IN_ROOM", "Join or create a room first.");
     switch (msg.type) {
+      case "leave":
+        return this.leave(client, s);
       case "start":
         if (s.who.role !== "host") throw new RoomError("HOST_ONLY", "Only the host can do that.");
         return s.room.start();
@@ -106,6 +112,22 @@ export class Manager {
         if (s.who.role !== "player") throw new RoomError("PLAYER_ONLY", "The host does not answer.");
         return s.room.answer(s.who.id, msg.choice);
     }
+  }
+
+  /** A player leaves. When the host leaves the room is closed for everyone. */
+  private leave(client: Client, s: Session): void {
+    this.sessions.delete(client);
+    if (s.who.role === "player") {
+      s.room.leave(s.who.id);
+      client.send({ type: "left", reason: "left" });
+      return;
+    }
+    const room = s.room;
+    for (const [c, other] of [...this.sessions]) {
+      if (other.room === room) c.send({ type: "left", reason: "closed" });
+    }
+    client.send({ type: "left", reason: "closed" });
+    this.deleteRoom(room.code, room);
   }
 
   private create(client: Client, msg: Extract<ClientMessage, { type: "create" }>): void {
@@ -140,9 +162,7 @@ export class Manager {
       const quiz: Quiz = { id: "c" + Math.random().toString(36).slice(2, 10), title: check.quiz.title, questions: check.quiz.questions.map((q) => ({ text: q.text, answers: q.answers as Quiz["questions"][number]["answers"], correct: q.correct })) };
       if (msg.save) {
         if (!client.user || !this.accounts) throw new RoomError("SIGN_IN_REQUIRED", "Sign in to keep a quiz.");
-        if (!this.accounts.save(client.user, quiz, QUIZ_LIMITS.savedPerAccount)) {
-          throw new RoomError("TOO_MANY_QUIZZES", `You can keep at most ${QUIZ_LIMITS.savedPerAccount} quizzes.`);
-        }
+        this.accounts.save(client.user, quiz, QUIZ_LIMITS.savedPerAccount);
         this.hello(client);
       }
       return quiz;

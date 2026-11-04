@@ -92,6 +92,13 @@ function onMessage(m: ServerMessage): void {
       error = "";
       save({ code: "", token: m.token }); // the code arrives with the first state
       break;
+    case "left":
+      save(null);
+      state = null;
+      screen = "home";
+      history.replaceState(null, "", "/" + location.search);
+      error = m.reason === "closed" ? "The host closed the room." : "";
+      break;
     case "state":
       state = m.state;
       error = "";
@@ -143,10 +150,13 @@ function shell(...content: (Node | false | null)[]): HTMLElement {
             h("button", { class: "quiet", type: "button", onclick: signOut }, "Sign out"),
           )
         : h("button", { class: "quiet", type: "button", onclick: () => go("signin") }, "Sign in");
+  const leave = state
+    ? h("button", { class: "quiet", type: "button", id: "leave-room", onclick: () => send({ type: "leave" }) }, state.role === "host" ? "Close room" : "Leave room")
+    : null;
   return h(
     "div",
     { class: "page" },
-    h("header", { class: "topbar" }, h("a", { class: "brand", href: "/" }, "Quiz", h("span", {}, "Room")), h("div", { class: "toolbar" }, account, toggle)),
+    h("header", { class: "topbar" }, h("a", { class: "brand", href: "/" }, "Quiz", h("span", {}, "Room")), h("div", { class: "toolbar" }, leave, account, toggle)),
     h("main", {}, ...content),
     h(
       "footer",
@@ -199,6 +209,14 @@ function createForm(): HTMLElement {
     mine.length ? h("optgroup", { label: "My quizzes" }, ...mine.map(option)) : null,
     ...(mine.length ? [] : builtIn.map(option)),
   );
+  quiz.addEventListener("change", () => {
+    form.name = name.value;
+    form.quiz = quiz.value;
+    render();
+  });
+  const removeBtn = form.quiz.startsWith("mine:")
+    ? h("button", { class: "quiet", type: "button", id: "delete-quiz", onclick: () => { send({ type: "delete-quiz", id: form.quiz }); form.quiz = ""; } }, "Delete this quiz")
+    : null;
   const f = h(
     "form",
     {
@@ -215,7 +233,7 @@ function createForm(): HTMLElement {
     },
     h("h1", {}, L.create),
     h("div", {}, h("label", { for: "host-name" }, "Your name"), name),
-    h("div", {}, h("label", { for: "quiz-set" }, "Quiz set"), quiz),
+    h("div", {}, h("label", { for: "quiz-set" }, "Quiz set"), quiz, removeBtn),
     errorLine(),
     h(
       "div",

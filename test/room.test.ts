@@ -134,6 +134,22 @@ describe("a game", () => {
   });
 });
 
+describe("leaving", () => {
+  it("removes a player in the lobby and keeps the score during a game", () => {
+    const r = make();
+    const a = r.join("Ana");
+    const b = r.join("Bo");
+    r.leave(a.id);
+    expect(r.playerCount).toBe(1);
+    r.start();
+    r.leave(b.id);
+    expect(r.playerCount).toBe(1);
+    expect(r.stateFor({ role: "host" }).players[0]!.connected).toBe(false);
+    expect(r.identify(b.token)).toBeNull(); // the old session cannot come back
+    expect(r.identify("")).toBeNull();
+  });
+});
+
 describe("question order", () => {
   it("is the same with the same seed and keeps answers in place", () => {
     const a = orderQuestions(quiz.questions, 123);

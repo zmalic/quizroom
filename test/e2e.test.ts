@@ -119,6 +119,48 @@ describe("scenario: host and four players", () => {
   });
 });
 
+describe("leaving a room", () => {
+  it("lets a player leave, and closes the room for everyone when the host leaves", async () => {
+    const host = await peer();
+    host.send({ type: "create", name: "Hana", quiz: "web-basics" });
+    const lobby = await host.until((s) => s.phase === "lobby");
+    const a = await peer();
+    a.send({ type: "join", code: lobby.code, nickname: "Ana" });
+    const b = await peer();
+    b.send({ type: "join", code: lobby.code, nickname: "Bo" });
+    await host.until((s) => s.players.length === 2);
+
+    a.send({ type: "leave" });
+    await host.until((s) => s.players.length === 1);
+
+    const gone: string[] = [];
+    b.ws.on("message", (d) => {
+      const m = JSON.parse(d.toString());
+      if (m.type === "left") gone.push(m.reason);
+    });
+    host.send({ type: "leave" });
+    await new Promise((r) => setTimeout(r, 150));
+    expect(gone).toEqual(["closed"]);
+    const again = await peer();
+    again.send({ type: "join", code: lobby.code, nickname: "Cy" });
+    await new Promise((r) => setTimeout(r, 100));
+    expect(again.errors).toContain("ROOM_NOT_FOUND");
+  });
+
+  it("deletes a saved quiz", async () => {
+    const base = `http://127.0.0.1:${port}`;
+    const ok = await fetch(base + "/api/login", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ email: "demo@example.com", password: "s3cret" }) });
+    const cookie = ok.headers.get("set-cookie")!.split(";")[0]!;
+    const p = await peer(cookie);
+    p.send({ type: "create", name: "Hana", save: true, custom: { title: "To delete", questions: [{ text: "Q?", answers: ["a", "b", "c", "d"], correct: 0 }] } });
+    await p.until((s) => s.phase === "lobby");
+    const before = p.hello!.quizzes.find((x) => x.title === "To delete")!;
+    p.send({ type: "delete-quiz", id: before.id });
+    await new Promise((r) => setTimeout(r, 100));
+    expect(p.hello!.quizzes.find((x) => x.title === "To delete")).toBeUndefined();
+  });
+});
+
 describe("serving", () => {
   it("serves the page, join links and a health check, and nothing outside public", async () => {
     const base = `http://127.0.0.1:${port}`;

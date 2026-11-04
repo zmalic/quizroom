@@ -26,12 +26,14 @@ describe("Accounts", () => {
     expect(a.userFor(t)).toBeNull();
   });
 
-  it("keeps saved quizzes per account up to a limit", () => {
+  it("keeps the newest quizzes when the account is full, and can delete one", () => {
     const a = new Accounts("d@e.f", "p");
-    const quiz = { id: "x", title: "T", questions: [] };
-    expect(a.save("d@e.f", quiz, 1)).toBe(true);
-    expect(a.save("d@e.f", quiz, 1)).toBe(false);
-    expect(a.quizzesOf("d@e.f")).toHaveLength(1);
+    const q = (id: string) => ({ id, title: id, questions: [] });
+    for (const id of ["1", "2", "3"]) a.save("d@e.f", q(id), 2);
+    expect(a.quizzesOf("d@e.f").map((x) => x.id)).toEqual(["2", "3"]);
+    expect(a.remove("d@e.f", "2")).toBe(true);
+    expect(a.remove("d@e.f", "2")).toBe(false);
+    expect(a.quizzesOf("d@e.f").map((x) => x.id)).toEqual(["3"]);
     expect(a.quizzesOf(null)).toEqual([]);
   });
 });
