@@ -1,0 +1,83 @@
+// Messages between the browser and the server. One JSON object per message.
+
+export type Phase = "lobby" | "question" | "reveal" | "finished";
+export type Variant = 1 | 2;
+
+export interface QuizInfo {
+  id: string;
+  title: string;
+  questions: number;
+}
+
+/** What the browser may send. */
+export type ClientMessage =
+  | { type: "create"; name: string; quiz: string; fast?: boolean; seed?: number; v?: Variant }
+  | { type: "join"; code: string; nickname: string }
+  | { type: "resume"; code: string; token: string }
+  | { type: "start" }
+  | { type: "answer"; choice: number }
+  | { type: "next" };
+
+export interface PlayerView {
+  id: string;
+  nickname: string;
+  color: string;
+  avatar: string;
+  score: number;
+  answered: boolean;
+  connected: boolean;
+}
+
+export interface LeaderboardRow {
+  rank: number;
+  id: string;
+  nickname: string;
+  color: string;
+  avatar: string;
+  score: number;
+}
+
+export interface QuestionView {
+  index: number;
+  total: number;
+  text: string;
+  answers: string[];
+  durationMs: number;
+  remainingMs: number;
+}
+
+export interface MyResult {
+  choice: number | null;
+  correct: boolean;
+  points: number;
+}
+
+export interface RoomState {
+  code: string;
+  phase: Phase;
+  v: Variant;
+  fast: boolean;
+  quizTitle: string;
+  hostName: string;
+  role: "host" | "player";
+  you: PlayerView | null;
+  players: PlayerView[];
+  question: QuestionView | null;
+  /** The player's own choice for the current question, or null. */
+  myChoice: number | null;
+  answeredCount: number;
+  reveal: {
+    correctIndex: number;
+    /** How many players picked each answer. */
+    counts: number[];
+    myResult: MyResult | null;
+  } | null;
+  leaderboard: LeaderboardRow[];
+  isLastQuestion: boolean;
+}
+
+export type ServerMessage =
+  | { type: "hello"; quizzes: QuizInfo[] }
+  | { type: "joined"; token: string; role: "host" | "player" }
+  | { type: "state"; state: RoomState }
+  | { type: "error"; code: string; message: string };
