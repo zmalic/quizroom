@@ -100,20 +100,25 @@ it with Player and Player answers both correctly.
 Use the exact error texts from the code in the assertions.
 ```
 
-## 4. Dependency chain: create a room, then play
+## 4. Dependency chain: create a room, then try to start it empty
 
 ```text
 Create two tests and link them:
 - "Create a room" (one actor): create a room with the quiz "General knowledge"
   and stop in the lobby.
-- "Start and finish a solo game" depends on it with depends_on. The second
-  test starts from the lobby and finishes the game with the host only, then
-  checks the podium or an empty leaderboard message from the code.
+- "Host cannot start without players" depends on it with depends_on. It has one
+  actor, the host. It clicks "Start game" while nobody has joined, asserts the
+  exact error text from src/server/room.ts, and asserts that the lobby is
+  still shown.
 
 Read the section about depends_on and transition in llms.txt first. Note that
-depends_on can only be set with PUT after the test exists. Run only the second
-test and check that the steps of the first one ran before it.
+depends_on can only be set with PUT after the test exists, and that the steps
+of the parent go to the first actor only. Run only the second test and check
+that the steps of the first one ran before it.
 ```
+
+Note: a game cannot start with no players, and the host does not play. That is
+why this chain tests the refusal and not a solo game.
 
 ## 5. Sign in with a secret
 
