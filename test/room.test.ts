@@ -134,6 +134,20 @@ describe("a game", () => {
   });
 });
 
+describe("flat points", () => {
+  it("gives every correct answer 1000 points, however late, so ties are easy to test", () => {
+    const r = make({ flat: true });
+    const a = r.join("Ana");
+    const b = r.join("Bo");
+    r.start();
+    const correct = orderQuestions(quiz.questions, 1)[0]!.correct;
+    r.answer(a.id, correct);
+    vi.advanceTimersByTime(15_000);
+    r.answer(b.id, correct);
+    expect(r.stateFor({ role: "host" }).leaderboard.map((x) => [x.rank, x.score])).toEqual([[1, 1000], [1, 1000]]);
+  });
+});
+
 describe("leaving", () => {
   it("removes a player in the lobby and keeps the score during a game", () => {
     const r = make();

@@ -146,6 +146,7 @@ export class Manager {
       hostName: name,
       quiz,
       fast: msg.fast === true,
+      flat: msg.flat === true,
       seed,
       v,
       limits: { maxPlayers: config.maxPlayers, questionMs: config.questionMs, fastQuestionMs: config.fastQuestionMs },

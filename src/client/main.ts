@@ -24,7 +24,7 @@ interface Draft {
 }
 const emptyQuestion = (): CustomQuestion => ({ text: "", answers: ["", "", "", ""], correct: -1 });
 let draft: Draft = { title: "", questions: [emptyQuestion()], save: false };
-const credentials = { email: "", password: "" };
+const credentials = { email: "", password: "" }; // kept while typing: a message from the server redraws the form
 let deadline = 0;
 let ticker: number | undefined;
 const form = { name: "", quiz: "", code: (location.pathname.split("/")[2] ?? "").toUpperCase(), nickname: "" };
@@ -198,7 +198,7 @@ function go(s: Screen): void {
 
 function createForm(): HTMLElement {
   const L = look();
-  const name = h("input", { id: "host-name", name: "name", autocomplete: "nickname", maxlength: 20, required: true, value: form.name });
+  const name = h("input", { id: "host-name", name: "name", autocomplete: "nickname", maxlength: 20, required: true, value: form.name, oninput: (e) => (form.name = (e.target as HTMLInputElement).value) });
   const option = (q: QuizInfo) => h("option", { value: q.id, selected: q.id === form.quiz }, `${q.title} (${q.questions} questions)`);
   const builtIn = quizzes.filter((q) => !q.mine);
   const mine = quizzes.filter((q) => q.mine);
@@ -209,6 +209,7 @@ function createForm(): HTMLElement {
     mine.length ? h("optgroup", { label: "My quizzes" }, ...mine.map(option)) : null,
     ...(mine.length ? [] : builtIn.map(option)),
   );
+  quiz.addEventListener("input", () => (form.quiz = quiz.value));
   quiz.addEventListener("change", () => {
     form.name = name.value;
     form.quiz = quiz.value;
@@ -226,9 +227,10 @@ function createForm(): HTMLElement {
         form.name = name.value;
         form.quiz = quiz.value;
         const fast = params.get("fast") === "1";
+        const flat = params.get("flat") === "1";
         const seedRaw = params.get("seed");
         const seed = seedRaw !== null && seedRaw !== "" && Number.isFinite(Number(seedRaw)) ? Number(seedRaw) : undefined;
-        send({ type: "create", name: form.name, quiz: form.quiz, fast, seed, v: urlVariant() });
+        send({ type: "create", name: form.name, quiz: form.quiz, fast, flat, seed, v: urlVariant() });
       },
     },
     h("h1", {}, L.create),
@@ -259,8 +261,8 @@ function createForm(): HTMLElement {
 
 function joinForm(): HTMLElement {
   const L = look();
-  const code = h("input", { id: "room-code-input", class: "code-input", name: "code", autocomplete: "off", maxlength: 6, required: true, value: form.code });
-  const nick = h("input", { id: "nickname", name: "nickname", autocomplete: "nickname", maxlength: 20, required: true, value: form.nickname });
+  const code = h("input", { id: "room-code-input", class: "code-input", name: "code", autocomplete: "off", maxlength: 6, required: true, value: form.code, oninput: (e) => (form.code = (e.target as HTMLInputElement).value) });
+  const nick = h("input", { id: "nickname", name: "nickname", autocomplete: "nickname", maxlength: 20, required: true, value: form.nickname, oninput: (e) => (form.nickname = (e.target as HTMLInputElement).value) });
   const f = h(
     "form",
     {
@@ -296,8 +298,8 @@ function signOut(): void {
 }
 
 function signInForm(): HTMLElement {
-  const email = h("input", { id: "email", name: "email", type: "email", autocomplete: "username", required: true, value: credentials.email });
-  const password = h("input", { id: "password", name: "password", type: "password", autocomplete: "current-password", required: true });
+  const email = h("input", { id: "email", name: "email", type: "email", autocomplete: "username", required: true, value: credentials.email, oninput: (e) => (credentials.email = (e.target as HTMLInputElement).value) });
+  const password = h("input", { id: "password", name: "password", type: "password", autocomplete: "current-password", required: true, value: credentials.password, oninput: (e) => (credentials.password = (e.target as HTMLInputElement).value) });
   const f = h(
     "form",
     {
@@ -394,7 +396,7 @@ function builderForm(): HTMLElement {
           return render();
         }
         error = "";
-        send({ type: "create", name: form.name, custom: check.quiz, save: draft.save && Boolean(auth.user), fast: params.get("fast") === "1", seed: Number.isFinite(Number(params.get("seed"))) && params.get("seed") ? Number(params.get("seed")) : undefined, v: urlVariant() });
+        send({ type: "create", name: form.name, custom: check.quiz, save: draft.save && Boolean(auth.user), fast: params.get("fast") === "1", flat: params.get("flat") === "1", seed: Number.isFinite(Number(params.get("seed"))) && params.get("seed") ? Number(params.get("seed")) : undefined, v: urlVariant() });
       },
     },
     h("h1", {}, "Create your own quiz"),

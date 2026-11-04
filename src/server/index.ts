@@ -98,7 +98,8 @@ function json(res: ServerResponse, status: number, body: unknown, headers: Recor
 export function start(port = config.port, accounts = new Accounts(process.env.DEMO_EMAIL, process.env.DEMO_PASSWORD)) {
   const manager = new Manager(accounts);
   const limit = new RateLimit(config.actionsPerMinute);
-  const loginLimit = new RateLimit(10);
+  // Test runners share addresses, and the demo password is public, so this is a brake and not a lock.
+  const loginLimit = new RateLimit(60);
 
   const server = createServer(async (req, res) => {
     const url = new URL(req.url ?? "/", "http://x");

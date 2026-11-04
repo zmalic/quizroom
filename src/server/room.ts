@@ -50,6 +50,8 @@ export interface RoomOptions {
   hostName: string;
   quiz: Quiz;
   fast: boolean;
+  /** Every correct answer is worth 1000 points, whatever the time. */
+  flat?: boolean;
   /** When set, the question order is the same every time. */
   seed?: number;
   v: Variant;
@@ -62,6 +64,7 @@ export class Room {
   readonly hostToken = randomBytes(16).toString("hex");
   readonly v: Variant;
   readonly fast: boolean;
+  readonly flat: boolean;
   readonly quizTitle: string;
   hostConnected = true;
   phase: Phase = "lobby";
@@ -80,6 +83,7 @@ export class Room {
     this.hostName = o.hostName;
     this.v = o.v;
     this.fast = o.fast;
+    this.flat = o.flat === true;
     this.quizTitle = o.quiz.title;
     this.limits = o.limits ?? DEFAULT_LIMITS;
     this.questions = orderQuestions(o.quiz.questions, o.seed);
@@ -221,7 +225,7 @@ export class Room {
     for (const p of this.players.values()) {
       const correct = p.choice !== null && p.choice === q.correct;
       // 1000 points for an instant answer, down to 500 at the last moment.
-      const points = correct ? Math.round(1000 * (1 - Math.min(p.answeredAfterMs / duration, 1) / 2)) : 0;
+      const points = !correct ? 0 : this.flat ? 1000 : Math.round(1000 * (1 - Math.min(p.answeredAfterMs / duration, 1) / 2));
       p.score += points;
       p.last = { choice: p.choice, correct, points };
     }
@@ -279,6 +283,7 @@ export class Room {
       phase: this.phase,
       v: this.v,
       fast: this.fast,
+      flat: this.flat,
       quizTitle: this.quizTitle,
       hostName: this.hostName,
       role: who.role,

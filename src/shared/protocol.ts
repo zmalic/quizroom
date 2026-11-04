@@ -24,6 +24,8 @@ export type ClientMessage =
       /** Keep the custom quiz in the signed-in host's account. */
       save?: boolean;
       fast?: boolean;
+      /** Every correct answer is worth 1000 points, so ties can be tested. */
+      flat?: boolean;
       seed?: number;
       v?: Variant;
     }
@@ -74,6 +76,7 @@ export interface RoomState {
   phase: Phase;
   v: Variant;
   fast: boolean;
+  flat: boolean;
   quizTitle: string;
   hostName: string;
   role: "host" | "player";

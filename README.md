@@ -56,6 +56,7 @@ belong to the whole room, so all players see the same thing.
 |---|---|
 | `?seed=123` | The same question order every time (answers keep their place). |
 | `?fast=1` | Short timers (10 seconds instead of 20). |
+| `?flat=1` | Every correct answer is worth 1000 points, whatever the time. Use it to test ties and exact scores. |
 | `?v=2` | A redesigned look: other button texts ("Start game" becomes "Begin"), other order, other classes and ids. The logic is the same. Good for showing self-healing. |
 
 Set `UI_VARIANT=2` on the server to make the redesign the default for every
