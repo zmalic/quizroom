@@ -175,32 +175,81 @@ Then:
 Tell me what the schedule and the webhook cost in runs, if the plan has limits.
 ```
 
-## 9. Test creation with the probe (in the Kintsugi app, by hand)
+## 9. Tests you make in the Kintsugi app (by hand)
 
-The API cannot start AI generation, so this one is done by you in the Kintsugi
-web app. It is a good video: you only describe the test in words.
+The API cannot start AI generation or the step-by-step editor, so these are
+made by you in the Kintsugi web app. You only describe the test in words. They
+also make good videos.
 
-1. In Kintsugi, open the project "QuizRoom demo", click to generate a test
-   and give the base URL `https://demo.kintsugi-qa.com/?fast=1&seed=123`.
-2. Paste a description, for example:
+Setup: open the project "QuizRoom demo". For every test below, give the base
+URL `https://demo.kintsugi-qa.com/?fast=1&seed=123`. Wording in the Kintsugi
+app may change with its redesign. If a button is named differently, follow the
+new name.
 
-   ```text
-   A host creates a room with the quiz "Web basics" and a player joins with the
-   room code. The host starts the game, the player answers the first question,
-   and sees whether the answer was correct.
-   ```
+### 9a. One test written by the AI (the probe)
 
-3. Watch the AI open the site, explore it and write the steps. Save the test.
-4. Run it. For a harder one, use this description (several users):
+Generate a test and paste this description:
 
-   ```text
-   Test with three users: a host and two players. Both players join the same
-   room, both answer the first question, and everyone sees the same
-   leaderboard with two names.
-   ```
+```text
+A host creates a room with the quiz "Web basics" and a player joins with the
+room code. The host starts the game, the player answers the first question,
+and sees whether the answer was correct.
+```
 
-Wording in the Kintsugi app may change with its redesign. If a button is
-named differently, follow the new name.
+Watch the AI open the site, explore it and write the steps. Save and run it.
+
+### 9b. A test with several users (the probe)
+
+```text
+Test with three users: a host and two players. Both players join the same
+room, both answer the first question, and everyone sees the same leaderboard
+with two names.
+```
+
+This shows that the AI plans several browsers and the points where they wait
+for each other.
+
+### 9c. A form with errors (the probe)
+
+```text
+On the home page the host chooses to create their own quiz. Submit the empty
+form and check that the page explains what is missing. Then fill in a title
+and one question with four different answers, mark the correct one and play
+the quiz.
+```
+
+### 9d. Sign-in with a secret
+
+First add a secret `DEMO_PASSWORD` in the project (Secrets) with the demo
+password. Then generate:
+
+```text
+Sign in as the demo host with the email demo@kintsugi-qa.com and the stored
+secret DEMO_PASSWORD. Check that the top bar shows who is signed in. Then
+create a quiz and keep it in the account.
+```
+
+Open the run and check that the password is masked everywhere.
+
+### 9e. Step by step in the editor (authoring)
+
+Start a new test and build it in the interactive editor with three users
+(Host, Ana, Bo). Go one round at a time: create the room, join, start, answer.
+This is the slower way, but you see every step before it is saved.
+
+### 9f. Regenerate after a redesign
+
+Open the test from 9a, then run it against `?v=2`. When healing is not enough,
+use "Regenerate" so the AI rewrites the test for the new look. Compare the old
+and new steps.
+
+### 9g. Environments, schedule and notifications
+
+These are settings, not tests, but they belong to the story. In the project:
+add the environments `classic` and `redesign` (the second one with `?v=2`),
+make a schedule for the suite from prompt 8, and add a notification channel
+(Slack or a webhook URL). Then let a run fail on purpose, for example with a
+wrong room code, and see the message arrive.
 
 ## What these prompts cover
 
@@ -216,8 +265,11 @@ named differently, follow the new name.
 | Self-healing | 7 |
 | Suites | 6, 8 |
 | Schedules and webhooks | 8 |
-| AI test creation (probe) | 9 |
-| Environments, notification channels | by hand in the app |
+| AI test creation (probe), with one and many users | 9a, 9b, 9c |
+| Secrets in the app | 9d |
+| Step by step editor (authoring) | 9e |
+| Regenerate after a redesign | 9f |
+| Environments, schedules, notification channels | 9g |
 
 Not covered by this demo, because the quiz has no such thing: file upload and
 download, drag and drop, double click, hover menus.
