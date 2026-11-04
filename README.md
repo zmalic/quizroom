@@ -6,8 +6,7 @@ shows who is best.
 
 It is a demo app for UI testing with [Kintsugi QA](https://kintsugi-qa.com). It
 has real-time features, several users at once, forms and a timer, which makes
-it a good target for multi-user tests. Live demo: `demo.kintsugi-qa.com`
-(not online yet).
+it a good target for multi-user tests. Live demo: <https://demo.kintsugi-qa.com>.
 
 Open source, MIT license.
 
