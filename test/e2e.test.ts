@@ -161,12 +161,31 @@ describe("leaving a room", () => {
   });
 });
 
+describe("one connection, two rooms", () => {
+  it("leaves the first room when the same connection creates another", async () => {
+    const host = await peer();
+    host.send({ type: "create", name: "Hana", quiz: "web-basics" });
+    const first = await host.until((s) => s.phase === "lobby");
+    const p = await peer();
+    p.send({ type: "join", code: first.code, nickname: "Ana" });
+    await p.until((s) => s.players.length === 1);
+    p.send({ type: "create", name: "Ana", quiz: "web-basics" });
+    await p.until((s) => s.code !== first.code);
+    const after = await host.until((s) => s.players[0]?.connected === false);
+    expect(after.players[0]?.nickname).toBe("Ana");
+  });
+});
+
 describe("serving", () => {
   it("serves the page, join links and a health check, and nothing outside public", async () => {
     const base = `http://127.0.0.1:${port}`;
     expect((await fetch(base + "/")).status).toBe(200);
     expect((await fetch(base + "/r/ABC234")).headers.get("content-type")).toContain("text/html");
     expect((await fetch(base + "/healthz")).status).toBe(200);
+    // A broken escape must not stop the server.
+    expect((await fetch(base + "/%E0%A4%A")).status).toBe(400);
+    expect((await fetch(base + "/healthz")).status).toBe(200);
+    expect((await fetch(base + "/theme.js")).status).toBe(200);
     const escape = await fetch(base + "/..%2F..%2Fpackage.json");
     expect(escape.status).toBe(404); // never the real package.json
     expect(await escape.text()).not.toContain("quizroom");

@@ -192,6 +192,10 @@ export class Manager {
   }
 
   private attach(client: Client, room: Room, who: Who, token: string): void {
+    // A connection that creates or joins another room leaves the one it was in,
+    // so that room does not show this person as still there.
+    const old = this.sessions.get(client);
+    if (old && (old.room !== room || old.who.role !== who.role)) this.disconnect(client);
     this.sessions.set(client, { room, who });
     client.send({ type: "joined", token, role: who.role });
     room.setConnected(who, true); // pushes state to everyone, including this client

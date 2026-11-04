@@ -30,9 +30,16 @@ export class Accounts {
     const emailOk = timingSafeEqual(digest(email.trim().toLowerCase()), digest(this.email!.toLowerCase()));
     const passOk = timingSafeEqual(digest(password), digest(this.password!));
     if (!(emailOk && passOk)) return null;
+    this.prune();
     const token = randomBytes(24).toString("hex");
     this.sessions.set(token, { email: this.email!.toLowerCase(), expires: this.now() + SESSION_MS });
     return token;
+  }
+
+  /** Drops ended sessions, so they do not pile up in memory. */
+  private prune(): void {
+    const now = this.now();
+    for (const [t, s] of this.sessions) if (s.expires < now) this.sessions.delete(t);
   }
 
   logout(token: string | undefined): void {

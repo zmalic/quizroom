@@ -101,7 +101,16 @@ export function start(port = config.port, accounts = new Accounts(process.env.DE
   // Test runners share addresses, and the demo password is public, so this is a brake and not a lock.
   const loginLimit = new RateLimit(60);
 
-  const server = createServer(async (req, res) => {
+  const server = createServer((req, res) => {
+    // An error in one request must never stop the server for everyone.
+    handleHttp(req, res).catch((e) => {
+      console.error("request failed", e);
+      if (!res.headersSent) res.writeHead(400, { "Content-Type": "text/plain; charset=utf-8", ...SECURITY_HEADERS });
+      res.end("Bad request");
+    });
+  });
+
+  async function handleHttp(req: IncomingMessage, res: ServerResponse): Promise<void> {
     const url = new URL(req.url ?? "/", "http://x");
     if (url.pathname === "/healthz") {
       res.writeHead(200, { "Content-Type": "application/json" });
@@ -129,7 +138,15 @@ export function start(port = config.port, accounts = new Accounts(process.env.DE
     if (url.pathname === "/" || /^\/r\/[A-Za-z0-9]{1,12}$/.test(url.pathname)) {
       return serveFile(res, join(publicDir, "index.html"));
     }
-    const rel = normalize(decodeURIComponent(url.pathname)).replace(/^([/\\])+/, "");
+    let decoded: string;
+    try {
+      decoded = decodeURIComponent(url.pathname);
+    } catch {
+      res.writeHead(400, SECURITY_HEADERS);
+      res.end("Bad request");
+      return;
+    }
+    const rel = normalize(decoded).replace(/^([/\\])+/, "");
     const file = join(publicDir, rel);
     if (!file.startsWith(publicDir + sep)) {
       res.writeHead(403, SECURITY_HEADERS);
@@ -137,7 +154,7 @@ export function start(port = config.port, accounts = new Accounts(process.env.DE
       return;
     }
     return serveFile(res, file);
-  });
+  }
 
   const wss = new WebSocketServer({ server, path: "/ws", maxPayload: 4096 });
   wss.on("connection", (ws: WebSocket, req) => {
@@ -169,7 +186,13 @@ export function start(port = config.port, accounts = new Accounts(process.env.DE
       if ((msg.type === "create" || msg.type === "join") && !limit.allow(address)) {
         return client.send({ type: "error", code: "RATE_LIMITED", message: "Too many tries. Wait a minute and try again." });
       }
-      manager.handle(client, msg);
+      try {
+        manager.handle(client, msg);
+      } catch (e) {
+        // A bug in one message must not stop the server for every room.
+        console.error("message failed", e);
+        client.send({ type: "error", code: "SERVER_ERROR", message: "Something went wrong. Try again." });
+      }
     });
     ws.on("close", () => {
       clearInterval(beat);
