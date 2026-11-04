@@ -141,13 +141,17 @@ result or the artifacts.
 Take the test from prompt 1 and make three copies, one for each setup:
 Firefox, WebKit, and a phone (pick an iPhone or Pixel device from
 GET /meta/browser-options). On the phone, only the Player is on the phone; the
-Host stays on a desktop browser, if per actor settings allow it. If they do
-not, run the whole test on the phone.
+Host stays on a desktop browser (device can be set for each actor).
 
 The app has a layout for small screens (answers go into one column). Add an
 assertion that proves the phone layout is used, for example that the four
-answer buttons are all visible without sideways scrolling. Make a suite
-"Browsers" with the three tests.
+answer buttons are all visible without sideways scrolling.
+
+Run the three tests on their own. Do not put them in a suite: a suite runs in
+one browser session and cannot include a test with several users.
+
+Then make three small tests with ONE actor each (the home page and the join
+form, one test per browser) and put those in a suite "Browsers".
 ```
 
 ## 7. Self-healing with the redesign
@@ -169,13 +173,17 @@ Do not fix the test yourself before the heal run.
 ## 8. Suite, schedule and webhook
 
 ```text
-Make a suite "QuizRoom smoke" with the tests from prompts 1, 3 and 5.
-Then:
-1. Create a schedule that runs the suite every day at 07:00 in the time zone
-   Europe/Stockholm.
-2. Create a webhook token for the suite and show me the curl command that
+Suites cannot include tests with several users (they run in one browser
+session). So:
+1. Make a suite "QuizRoom smoke" from the single-user tests only: the three
+   small tests from prompt 6 and the test "Create a room" from prompt 4.
+2. Create a schedule for the multi-user test "Host and four players" (prompt 2)
+   that runs every day at 07:00 in the time zone Europe/Stockholm. A schedule
+   can run a test on its own, so it can run multi-user tests.
+3. Create a webhook token for the same test and show me the curl command that
    triggers it (do not print the token in the chat; tell me where I can find it).
-3. Trigger the suite once and wait for the result.
+4. Run the suite once and trigger the test once with the webhook. Wait for both
+   results.
 
 Tell me what the schedule and the webhook cost in runs, if the plan has limits.
 ```
@@ -268,7 +276,7 @@ wrong room code, and see the message arrive.
 | Secrets (masked values) | 5 |
 | Browsers and phone devices | 6 |
 | Self-healing | 7 |
-| Suites | 6, 8 |
+| Suites (single-user tests only) | 6, 8 |
 | Schedules and webhooks | 8 |
 | AI test creation (probe), with one and many users | 9a, 9b, 9c |
 | Secrets in the app | 9d |
