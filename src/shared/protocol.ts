@@ -3,15 +3,30 @@
 export type Phase = "lobby" | "question" | "reveal" | "finished";
 export type Variant = 1 | 2;
 
+import type { CustomQuiz } from "./validate.js";
+
 export interface QuizInfo {
   id: string;
   title: string;
   questions: number;
+  /** True for a quiz kept in the signed-in host's account. */
+  mine?: boolean;
 }
 
 /** What the browser may send. */
 export type ClientMessage =
-  | { type: "create"; name: string; quiz: string; fast?: boolean; seed?: number; v?: Variant }
+  | {
+      type: "create";
+      name: string;
+      /** A built-in quiz id, or "mine:<id>" for a saved one. Left out when `custom` is sent. */
+      quiz?: string;
+      custom?: CustomQuiz;
+      /** Keep the custom quiz in the signed-in host's account. */
+      save?: boolean;
+      fast?: boolean;
+      seed?: number;
+      v?: Variant;
+    }
   | { type: "join"; code: string; nickname: string }
   | { type: "resume"; code: string; token: string }
   | { type: "start" }
@@ -77,7 +92,7 @@ export interface RoomState {
 }
 
 export type ServerMessage =
-  | { type: "hello"; quizzes: QuizInfo[] }
+  | { type: "hello"; quizzes: QuizInfo[]; auth: { enabled: boolean; user: string | null } }
   | { type: "joined"; token: string; role: "host" | "player" }
   | { type: "state"; state: RoomState }
   | { type: "error"; code: string; message: string };

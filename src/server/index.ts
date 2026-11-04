@@ -5,9 +5,9 @@ import { dirname, extname, join, normalize, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 import { WebSocketServer, type WebSocket } from "ws";
 import type { ClientMessage } from "../shared/protocol.js";
+import { Accounts, SESSION_COOKIE, cookieValue } from "./auth.js";
 import { config } from "./config.js";
-import { Manager } from "./manager.js";
-import { quizInfos } from "./quizzes.js";
+import { Manager, type Client } from "./manager.js";
 
 const here = dirname(fileURLToPath(import.meta.url));
 // From dist/ the folder is ../public; from src/server/ (tests) it is ../../public.
@@ -68,9 +68,37 @@ async function serveFile(res: ServerResponse, path: string, status = 200): Promi
   }
 }
 
-export function start(port = config.port) {
-  const manager = new Manager();
+function readJson(req: IncomingMessage, max = 2048): Promise<unknown> {
+  return new Promise((resolve, reject) => {
+    let size = 0;
+    const chunks: Buffer[] = [];
+    req.on("data", (c: Buffer) => {
+      size += c.length;
+      if (size > max) {
+        reject(new Error("too large"));
+        req.destroy();
+      } else chunks.push(c);
+    });
+    req.on("end", () => {
+      try {
+        resolve(JSON.parse(Buffer.concat(chunks).toString() || "null"));
+      } catch (e) {
+        reject(e);
+      }
+    });
+    req.on("error", reject);
+  });
+}
+
+function json(res: ServerResponse, status: number, body: unknown, headers: Record<string, string> = {}): void {
+  res.writeHead(status, { "Content-Type": "application/json", ...SECURITY_HEADERS, ...headers });
+  res.end(JSON.stringify(body));
+}
+
+export function start(port = config.port, accounts = new Accounts(process.env.DEMO_EMAIL, process.env.DEMO_PASSWORD)) {
+  const manager = new Manager(accounts);
   const limit = new RateLimit(config.actionsPerMinute);
+  const loginLimit = new RateLimit(10);
 
   const server = createServer(async (req, res) => {
     const url = new URL(req.url ?? "/", "http://x");
@@ -78,6 +106,23 @@ export function start(port = config.port) {
       res.writeHead(200, { "Content-Type": "application/json" });
       res.end(JSON.stringify({ ok: true, rooms: manager.roomCount }));
       return;
+    }
+    if (url.pathname === "/api/login" && req.method === "POST") {
+      if (!loginLimit.allow(clientAddress(req))) return json(res, 429, { error: "Too many tries. Wait a minute and try again." });
+      let body: { email?: unknown; password?: unknown } = {};
+      try {
+        body = ((await readJson(req)) ?? {}) as typeof body;
+      } catch {
+        return json(res, 400, { error: "Could not read the request." });
+      }
+      const token = accounts.login(String(body.email ?? ""), String(body.password ?? ""));
+      if (!token) return json(res, 401, { error: "Wrong email or password." });
+      const secure = req.headers["x-forwarded-proto"] === "https" ? "; Secure" : "";
+      return json(res, 200, { ok: true }, { "Set-Cookie": `${SESSION_COOKIE}=${token}; HttpOnly; SameSite=Lax; Path=/; Max-Age=43200${secure}` });
+    }
+    if (url.pathname === "/api/logout" && req.method === "POST") {
+      accounts.logout(cookieValue(req.headers.cookie, SESSION_COOKIE));
+      return json(res, 200, { ok: true }, { "Set-Cookie": `${SESSION_COOKIE}=; HttpOnly; SameSite=Lax; Path=/; Max-Age=0` });
     }
     // A join link looks like /r/ABC234. The page reads the code from the address.
     if (url.pathname === "/" || /^\/r\/[A-Za-z0-9]{1,12}$/.test(url.pathname)) {
@@ -96,7 +141,10 @@ export function start(port = config.port) {
   const wss = new WebSocketServer({ server, path: "/ws", maxPayload: 4096 });
   wss.on("connection", (ws: WebSocket, req) => {
     const address = clientAddress(req);
-    const client = { send: (m: unknown) => ws.readyState === ws.OPEN && ws.send(JSON.stringify(m)) };
+    const client: Client = {
+      send: (m) => void (ws.readyState === ws.OPEN && ws.send(JSON.stringify(m))),
+      user: accounts.userFor(cookieValue(req.headers.cookie, SESSION_COOKIE)),
+    };
     let alive = true;
     ws.on("pong", () => (alive = true));
     const beat = setInterval(() => {
@@ -105,7 +153,7 @@ export function start(port = config.port) {
       ws.ping();
     }, 30_000);
 
-    client.send({ type: "hello", quizzes: quizInfos() });
+    manager.hello(client);
 
     ws.on("message", (data) => {
       let msg: ClientMessage;

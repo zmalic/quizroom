@@ -1,11 +1,12 @@
 import type { ClientMessage, QuizInfo, RoomState, ServerMessage, Variant } from "../shared/protocol.js";
 import { LOOKS, type Look } from "./copy.js";
+import { validateQuiz, QUIZ_LIMITS, type CustomQuestion } from "../shared/validate.js";
 import { h } from "./dom.js";
 
 const SHAPES = ["▲", "◆", "●", "■"];
 const SESSION_KEY = "quizroom-session";
 
-type Screen = "home" | "create" | "join";
+type Screen = "home" | "create" | "join" | "signin" | "builder";
 
 let ws: WebSocket | null = null;
 let quizzes: QuizInfo[] = [];
@@ -13,6 +14,17 @@ let state: RoomState | null = null;
 let screen: Screen = location.pathname.startsWith("/r/") ? "join" : "home";
 let error = "";
 let connected = false;
+let auth: { enabled: boolean; user: string | null } = { enabled: false, user: null };
+let reconnectDelay = 1000;
+
+interface Draft {
+  title: string;
+  questions: CustomQuestion[];
+  save: boolean;
+}
+const emptyQuestion = (): CustomQuestion => ({ text: "", answers: ["", "", "", ""], correct: -1 });
+let draft: Draft = { title: "", questions: [emptyQuestion()], save: false };
+const credentials = { email: "", password: "" };
 let deadline = 0;
 let ticker: number | undefined;
 const form = { name: "", quiz: "", code: (location.pathname.split("/")[2] ?? "").toUpperCase(), nickname: "" };
@@ -58,7 +70,8 @@ function connect(): void {
   ws.onclose = () => {
     connected = false;
     render();
-    setTimeout(connect, 1000);
+    setTimeout(connect, reconnectDelay);
+    reconnectDelay = 1000;
   };
   ws.onmessage = (e) => onMessage(JSON.parse(e.data) as ServerMessage);
 }
@@ -67,7 +80,8 @@ function onMessage(m: ServerMessage): void {
   switch (m.type) {
     case "hello":
       quizzes = m.quizzes;
-      if (!form.quiz) form.quiz = quizzes[0]?.id ?? "";
+      auth = m.auth;
+      if (!quizzes.some((q) => q.id === form.quiz)) form.quiz = quizzes[0]?.id ?? "";
       break;
     case "joined":
       error = "";
@@ -113,10 +127,21 @@ function shell(...content: (Node | false | null)[]): HTMLElement {
     },
     "Theme",
   );
+  const account =
+    state || !auth.enabled || (screen === "signin" && !auth.user)
+      ? null
+      : auth.user
+        ? h(
+            "span",
+            { class: "account" },
+            h("span", { class: "muted" }, `Signed in as ${auth.user}`),
+            h("button", { class: "quiet", type: "button", onclick: signOut }, "Sign out"),
+          )
+        : h("button", { class: "quiet", type: "button", onclick: () => go("signin") }, "Sign in");
   return h(
     "div",
     { class: "page" },
-    h("header", { class: "topbar" }, h("a", { class: "brand", href: "/" }, "Quiz", h("span", {}, "Room")), toggle),
+    h("header", { class: "topbar" }, h("a", { class: "brand", href: "/" }, "Quiz", h("span", {}, "Room")), h("div", { class: "toolbar" }, account, toggle)),
     h("main", {}, ...content),
     h(
       "footer",
@@ -129,7 +154,7 @@ function shell(...content: (Node | false | null)[]): HTMLElement {
 }
 
 function errorLine(): HTMLElement | false {
-  return error ? h("p", { class: "error", role: "alert" }, error) : false;
+  return error ? h("p", { class: "error", role: "alert", id: "form-error" }, error) : false;
 }
 
 function home(): HTMLElement {
@@ -159,10 +184,15 @@ function go(s: Screen): void {
 function createForm(): HTMLElement {
   const L = look();
   const name = h("input", { id: "host-name", name: "name", autocomplete: "nickname", maxlength: 20, required: true, value: form.name });
+  const option = (q: QuizInfo) => h("option", { value: q.id, selected: q.id === form.quiz }, `${q.title} (${q.questions} questions)`);
+  const builtIn = quizzes.filter((q) => !q.mine);
+  const mine = quizzes.filter((q) => q.mine);
   const quiz = h(
     "select",
     { id: "quiz-set", name: "quiz" },
-    ...quizzes.map((q) => h("option", { value: q.id, selected: q.id === form.quiz }, `${q.title} (${q.questions} questions)`)),
+    mine.length ? h("optgroup", { label: "Built-in" }, ...builtIn.map(option)) : null,
+    mine.length ? h("optgroup", { label: "My quizzes" }, ...mine.map(option)) : null,
+    ...(mine.length ? [] : builtIn.map(option)),
   );
   const f = h(
     "form",
@@ -186,6 +216,17 @@ function createForm(): HTMLElement {
       "div",
       { class: "row" },
       h("button", { class: L.primary, type: "submit" }, L.submitCreate),
+      h(
+        "button",
+        {
+          type: "button",
+          onclick: () => {
+            form.name = name.value;
+            go("builder");
+          },
+        },
+        "Create your own quiz",
+      ),
       h("button", { type: "button", onclick: () => go("home") }, "Back"),
     ),
   );
@@ -220,6 +261,150 @@ function joinForm(): HTMLElement {
     ),
   );
   queueMicrotask(() => (form.code ? nick : code).focus());
+  return shell(f);
+}
+
+
+function signOut(): void {
+  fetch("/api/logout", { method: "POST" }).finally(() => {
+    reconnectDelay = 0;
+    ws?.close();
+  });
+}
+
+function signInForm(): HTMLElement {
+  const email = h("input", { id: "email", name: "email", type: "email", autocomplete: "username", required: true, value: credentials.email });
+  const password = h("input", { id: "password", name: "password", type: "password", autocomplete: "current-password", required: true });
+  const f = h(
+    "form",
+    {
+      class: "card stack",
+      onsubmit: async (e) => {
+        e.preventDefault();
+        credentials.email = email.value;
+        const res = await fetch("/api/login", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ email: email.value, password: password.value }),
+        });
+        if (res.ok) {
+          // A new connection picks up the session and sends the saved quizzes.
+          screen = "home";
+          error = "";
+          reconnectDelay = 0;
+          ws?.close();
+        } else {
+          error = ((await res.json().catch(() => null)) as { error?: string } | null)?.error ?? "Could not sign in.";
+          render();
+        }
+      },
+    },
+    h("h1", {}, "Sign in"),
+    h("p", { class: "lead" }, "Hosts can sign in to keep their own quizzes. Players do not need an account."),
+    h("div", {}, h("label", { for: "email" }, "Email"), email),
+    h("div", {}, h("label", { for: "password" }, "Password"), password),
+    errorLine(),
+    h(
+      "div",
+      { class: "row" },
+      h("button", { class: look().primary, type: "submit" }, "Sign in"),
+      h("button", { type: "button", onclick: () => go("home") }, "Back"),
+    ),
+  );
+  queueMicrotask(() => (credentials.email ? password : email).focus());
+  return shell(f);
+}
+
+function builderForm(): HTMLElement {
+  const L = look();
+  const name = h("input", { id: "host-name", name: "name", autocomplete: "nickname", maxlength: 20, required: true, value: form.name, oninput: (e) => (form.name = (e.target as HTMLInputElement).value) });
+  const title = h("input", { id: "quiz-title", name: "title", maxlength: QUIZ_LIMITS.title, value: draft.title, oninput: (e) => (draft.title = (e.target as HTMLInputElement).value) });
+  const letters = ["A", "B", "C", "D"];
+  const questions = draft.questions.map((q, i) => {
+    const n = i + 1;
+    const rows = letters.map((letter, a) =>
+      h(
+        "div",
+        { class: "answer-row" },
+        h("input", {
+          type: "radio",
+          name: `correct-${i}`,
+          "aria-label": `Question ${n}: answer ${letter} is correct`,
+          checked: q.correct === a,
+          onchange: () => (q.correct = a),
+        }),
+        h("label", { class: "sr-only", for: `q${i}-a${a}` }, `Question ${n}, answer ${letter}`),
+        h("input", {
+          id: `q${i}-a${a}`,
+          placeholder: `Answer ${letter}`,
+          maxlength: QUIZ_LIMITS.answer,
+          value: q.answers[a] ?? "",
+          oninput: (e) => (q.answers[a] = (e.target as HTMLInputElement).value),
+        }),
+      ),
+    );
+    return h(
+      "fieldset",
+      { class: "qbox" },
+      h("legend", {}, `Question ${n}`),
+      h("div", {}, h("label", { for: `q${i}-text` }, "Question text"), h("input", { id: `q${i}-text`, maxlength: QUIZ_LIMITS.text, value: q.text, oninput: (e) => (q.text = (e.target as HTMLInputElement).value) })),
+      h("p", { class: "muted hint" }, "Type four answers and select the correct one."),
+      ...rows,
+      draft.questions.length > 1 &&
+        h("button", { class: "quiet", type: "button", onclick: () => { draft.questions.splice(i, 1); render(); } }, `Remove question ${n}`),
+    );
+  });
+  const f = h(
+    "form",
+    {
+      class: "card stack",
+      novalidate: true,
+      onsubmit: (e) => {
+        e.preventDefault();
+        if (!form.name.trim()) {
+          error = "Enter your name.";
+          return render();
+        }
+        const check = validateQuiz(draft);
+        if (!check.ok) {
+          error = check.error;
+          return render();
+        }
+        error = "";
+        send({ type: "create", name: form.name, custom: check.quiz, save: draft.save && Boolean(auth.user), fast: params.get("fast") === "1", seed: Number.isFinite(Number(params.get("seed"))) && params.get("seed") ? Number(params.get("seed")) : undefined, v: urlVariant() });
+      },
+    },
+    h("h1", {}, "Create your own quiz"),
+    h("div", {}, h("label", { for: "host-name" }, "Your name"), name),
+    h("div", {}, h("label", { for: "quiz-title" }, "Quiz title"), title),
+    ...questions,
+    h(
+      "button",
+      { type: "button", disabled: draft.questions.length >= QUIZ_LIMITS.questions, onclick: () => { draft.questions.push(emptyQuestion()); render(); } },
+      "Add question",
+    ),
+    auth.user &&
+      h(
+        "div",
+        { class: "check" },
+        h("input", { id: "save-quiz", type: "checkbox", checked: draft.save, onchange: (e) => (draft.save = (e.target as HTMLInputElement).checked) }),
+        h("label", { for: "save-quiz" }, "Keep this quiz in my account"),
+      ),
+    errorLine(),
+    h(
+      "div",
+      { class: "row" },
+      h("button", { class: L.primary, type: "submit" }, "Play this quiz"),
+      h("button", { type: "button", onclick: () => go("create") }, "Back"),
+    ),
+  );
+  // An old message should not stay once the person starts fixing the problem.
+  const clearError = () => {
+    error = "";
+    document.getElementById("form-error")?.remove();
+  };
+  f.addEventListener("input", clearError);
+  f.addEventListener("change", clearError);
   return shell(f);
 }
 
@@ -405,7 +590,7 @@ function render(): void {
   if (state) {
     view = { lobby, question, reveal, finished }[state.phase](state);
   } else {
-    view = screen === "create" ? createForm() : screen === "join" ? joinForm() : home();
+    view = { create: createForm, join: joinForm, signin: signInForm, builder: builderForm, home }[screen]();
   }
   root.replaceChildren(view);
   if (ticker) clearInterval(ticker);

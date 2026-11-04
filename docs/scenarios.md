@@ -28,4 +28,30 @@ Five actors: **Host**, **Ana**, **Bo**, **Cy**, **Di**.
 
 ## 3. Create a custom quiz, then play it
 
-Not built yet. The create-your-own-quiz form comes in the next step.
+Two actors: **Host** and **Player**. Good for testing forms and their error
+messages.
+
+1. Host opens the home page, chooses "Create a room", enters the name "Hana"
+   and clicks "Create your own quiz".
+2. Host enters the title "Capitals" and clicks "Play this quiz" with an empty
+   form. The page shows "Question 1 needs a text."
+3. Host fills in the question "Capital of Sweden?" with four answers, but does
+   not mark the correct one. The page shows "Question 1: mark the correct
+   answer."
+4. Host marks "Stockholm" as correct. Host clicks "Add question" and adds
+   "2 + 2?" with the correct answer "4".
+5. Host clicks "Play this quiz" and gets a room code. Player joins as "Ana".
+6. Host starts the game. Player answers both questions correctly and sees
+   "Correct!" and the leaderboard.
+
+## 4. Sign in with a stored secret
+
+One actor. The demo account comes from the server settings `DEMO_EMAIL` and
+`DEMO_PASSWORD`. Store the password as a secret in Kintsugi QA.
+
+1. Open the home page and click "Sign in".
+2. Enter the email and a wrong password. The page shows "Wrong email or
+   password."
+3. Enter the right password. The top bar shows "Signed in as ...".
+4. Create a room with your own quiz and tick "Keep this quiz in my account".
+5. Open "Create a room" again. The quiz appears under "My quizzes".

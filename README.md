@@ -34,6 +34,17 @@ For development: `npm run dev` rebuilds on change. Tests: `npm test`.
 4. After each question everyone sees the correct answer and the leaderboard.
    The host clicks "Next question". At the end there is a podium.
 
+## Your own quiz and sign-in
+
+On the create page, "Create your own quiz" opens a form: a title and up to 10
+questions with four different answers each, and one marked as correct. The page
+explains what is wrong before it creates the room.
+
+A host can sign in to keep quizzes. There is one demo account. Set both
+`DEMO_EMAIL` and `DEMO_PASSWORD` on the server to turn sign-in on. Without them
+there is no sign-in button. Kept quizzes live in memory and are lost when the
+server restarts. Players never need an account.
+
 ## Switches for testing
 
 Add these to the address of the page where the host creates the room. They
@@ -65,6 +76,7 @@ See [docs/scenarios.md](docs/scenarios.md) for example test scenarios.
 | `FAST_QUESTION_SECONDS` | 10 | Time for a question with `?fast=1` |
 | `ACTIONS_PER_MINUTE` | 300 | Rooms created or joined per client address per minute |
 | `UI_VARIANT` | 1 | `2` makes the redesign the default |
+| `DEMO_EMAIL`, `DEMO_PASSWORD` | not set | The demo host account. Sign-in is off without both |
 
 The limit per address is high on purpose. Test runners open many browsers from
 the same address.

@@ -1,11 +1,15 @@
 import type { ClientMessage, ServerMessage, Variant } from "../shared/protocol.js";
+import { validateQuiz, QUIZ_LIMITS } from "../shared/validate.js";
+import type { Accounts } from "./auth.js";
 import { config } from "./config.js";
-import { findQuiz } from "./quizzes.js";
+import { findQuiz, quizInfos, type Quiz } from "./quizzes.js";
 import { Room, RoomError, newRoomCode, NICKNAME_MAX } from "./room.js";
 
 /** The part of a socket the manager needs. Lets tests use a fake. */
 export interface Client {
   send(msg: ServerMessage): void;
+  /** Email of the signed-in host, if any. */
+  user?: string | null;
 }
 
 type Who = { role: "host" } | { role: "player"; id: string };
@@ -20,9 +24,22 @@ export class Manager {
   private sessions = new Map<Client, Session>();
   private sweeper: NodeJS.Timeout;
 
-  constructor(private now: () => number = Date.now) {
+  constructor(
+    private accounts: Accounts | null = null,
+    private now: () => number = Date.now,
+  ) {
     this.sweeper = setInterval(() => this.sweep(), 60_000);
     this.sweeper.unref();
+  }
+
+  /** The first message to a new connection: the quizzes this person can pick, and the sign-in state. */
+  hello(client: Client): void {
+    const mine: Quiz[] = this.accounts?.quizzesOf(client.user ?? null) ?? [];
+    client.send({
+      type: "hello",
+      quizzes: [...quizInfos(), ...mine.map((q) => ({ id: "mine:" + q.id, title: q.title, questions: q.questions.length, mine: true }))],
+      auth: { enabled: Boolean(this.accounts?.enabled), user: client.user ?? null },
+    });
   }
 
   get roomCount(): number {
@@ -95,8 +112,7 @@ export class Manager {
     const name = String(msg.name ?? "").trim().replace(/\s+/g, " ");
     if (!name) throw new RoomError("NAME_REQUIRED", "Enter your name.");
     if (name.length > NICKNAME_MAX) throw new RoomError("NAME_TOO_LONG", `A name can have at most ${NICKNAME_MAX} characters.`);
-    const quiz = findQuiz(String(msg.quiz));
-    if (!quiz) throw new RoomError("QUIZ_NOT_FOUND", "Pick a quiz set.");
+    const quiz = this.pickQuiz(client, msg);
     if (this.rooms.size >= config.maxRooms) throw new RoomError("TOO_MANY_ROOMS", "The demo is busy. Try again in a few minutes.");
 
     let code = newRoomCode();
@@ -115,6 +131,28 @@ export class Manager {
     room.setOnChange(() => this.push(room));
     this.rooms.set(code, room);
     this.attach(client, room, { role: "host" }, room.hostToken);
+  }
+
+  private pickQuiz(client: Client, msg: Extract<ClientMessage, { type: "create" }>): Quiz {
+    if (msg.custom !== undefined) {
+      const check = validateQuiz(msg.custom);
+      if (!check.ok) throw new RoomError("QUIZ_INVALID", check.error);
+      const quiz: Quiz = { id: "c" + Math.random().toString(36).slice(2, 10), title: check.quiz.title, questions: check.quiz.questions.map((q) => ({ text: q.text, answers: q.answers as Quiz["questions"][number]["answers"], correct: q.correct })) };
+      if (msg.save) {
+        if (!client.user || !this.accounts) throw new RoomError("SIGN_IN_REQUIRED", "Sign in to keep a quiz.");
+        if (!this.accounts.save(client.user, quiz, QUIZ_LIMITS.savedPerAccount)) {
+          throw new RoomError("TOO_MANY_QUIZZES", `You can keep at most ${QUIZ_LIMITS.savedPerAccount} quizzes.`);
+        }
+        this.hello(client);
+      }
+      return quiz;
+    }
+    const id = String(msg.quiz ?? "");
+    const quiz = id.startsWith("mine:")
+      ? this.accounts?.quizzesOf(client.user ?? null).find((q) => "mine:" + q.id === id)
+      : findQuiz(id);
+    if (!quiz) throw new RoomError("QUIZ_NOT_FOUND", "Pick a quiz set.");
+    return quiz;
   }
 
   private join(client: Client, msg: Extract<ClientMessage, { type: "join" }>): void {

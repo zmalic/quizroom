@@ -1,13 +1,14 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import WebSocket from "ws";
 import type { RoomState, ServerMessage } from "../src/shared/protocol.js";
+import { Accounts } from "../src/server/auth.js";
 import { start } from "../src/server/index.js";
 
 let app: ReturnType<typeof start>;
 let port: number;
 
 beforeAll(async () => {
-  app = start(0);
+  app = start(0, new Accounts("demo@example.com", "s3cret"));
   await new Promise((r) => app.server.once("listening", r));
   port = (app.server.address() as { port: number }).port;
 });
@@ -19,11 +20,13 @@ class Peer {
   errors: string[] = [];
   token = "";
   private waiters: (() => void)[] = [];
-  constructor() {
-    this.ws = new WebSocket(`ws://127.0.0.1:${port}/ws`);
+  hello: Extract<ServerMessage, { type: "hello" }> | null = null;
+  constructor(cookie?: string) {
+    this.ws = new WebSocket(`ws://127.0.0.1:${port}/ws`, cookie ? { headers: { cookie } } : undefined);
     this.ws.on("message", (d) => {
       const m = JSON.parse(d.toString()) as ServerMessage;
       if (m.type === "state") this.state = m.state;
+      if (m.type === "hello") this.hello = m;
       if (m.type === "error") this.errors.push(m.code);
       if (m.type === "joined") this.token = m.token;
       this.waiters.splice(0).forEach((w) => w());
@@ -45,8 +48,8 @@ class Peer {
   }
 }
 
-async function peer(): Promise<Peer> {
-  const p = new Peer();
+async function peer(cookie?: string): Promise<Peer> {
+  const p = new Peer(cookie);
   await p.open();
   return p;
 }
@@ -125,5 +128,55 @@ describe("serving", () => {
     const escape = await fetch(base + "/..%2F..%2Fpackage.json");
     expect(escape.status).toBe(404); // never the real package.json
     expect(await escape.text()).not.toContain("quizroom");
+  });
+});
+
+describe("custom quizzes and sign-in", () => {
+  const body = { title: "My quiz", questions: [{ text: "Pick B", answers: ["a", "b", "c", "d"], correct: 1 }] };
+
+  it("plays a custom quiz and refuses a bad one with a clear message", async () => {
+    const bad = await peer();
+    bad.send({ type: "create", name: "Hana", custom: { ...body, title: "" } });
+    await new Promise((r) => setTimeout(r, 100));
+    expect(bad.errors).toContain("QUIZ_INVALID");
+
+    const host = await peer();
+    host.send({ type: "create", name: "Hana", custom: body });
+    const lobby = await host.until((s) => s.phase === "lobby");
+    expect(lobby.quizTitle).toBe("My quiz");
+    const p = await peer();
+    p.send({ type: "join", code: lobby.code, nickname: "Ana" });
+    await p.until((s) => s.you !== null);
+    host.send({ type: "start" });
+    const q = await p.until((s) => s.phase === "question");
+    expect(q.question!.text).toBe("Pick B");
+  });
+
+  it("rejects a wrong password, then keeps a quiz for the signed-in host", async () => {
+    const base = `http://127.0.0.1:${port}`;
+    const post = (pw: string) =>
+      fetch(base + "/api/login", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ email: "demo@example.com", password: pw }) });
+    expect((await post("nope")).status).toBe(401);
+    const ok = await post("s3cret");
+    expect(ok.status).toBe(200);
+    const cookie = ok.headers.get("set-cookie")!.split(";")[0]!;
+
+    const anon = await peer();
+    await anon.until(() => true).catch(() => {});
+    anon.send({ type: "create", name: "Hana", custom: body, save: true });
+    await new Promise((r) => setTimeout(r, 100));
+    expect(anon.errors).toContain("SIGN_IN_REQUIRED");
+
+    const host = await peer(cookie);
+    host.send({ type: "create", name: "Hana", custom: body, save: true });
+    await host.until((s) => s.phase === "lobby");
+    expect(host.hello?.auth.user).toBe("demo@example.com");
+
+    const again = await peer(cookie);
+    await new Promise((r) => setTimeout(r, 100));
+    const mine = again.hello!.quizzes.find((x) => x.mine);
+    expect(mine?.title).toBe("My quiz");
+    again.send({ type: "create", name: "Hana", quiz: mine!.id });
+    expect((await again.until((s) => s.phase === "lobby")).quizTitle).toBe("My quiz");
   });
 });
