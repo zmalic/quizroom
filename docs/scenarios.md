@@ -26,25 +26,7 @@ Five actors: **Host**, **Ana**, **Bo**, **Cy**, **Di**.
 4. Every player sees a result and the same leaderboard with four names.
 5. Host clicks "Next question". All players see question 2.
 
-## 3. Create a custom quiz, then play it
-
-Two actors: **Host** and **Player**. Good for testing forms and their error
-messages.
-
-1. Host opens the home page, chooses "Create a room", enters the name "Hana"
-   and clicks "Create your own quiz".
-2. Host enters the title "Capitals" and clicks "Play this quiz" with an empty
-   form. The page shows "Question 1 needs a text."
-3. Host fills in the question "Capital of Sweden?" with four answers, but does
-   not mark the correct one. The page shows "Question 1: mark the correct
-   answer."
-4. Host marks "Stockholm" as correct. Host clicks "Add question" and adds
-   "2 + 2?" with the correct answer "4".
-5. Host clicks "Play this quiz" and gets a room code. Player joins as "Ana".
-6. Host starts the game. Player answers both questions correctly and sees
-   "Correct!" and the leaderboard.
-
-## 4. Sign in with a stored secret
+## 3. Sign in with a stored secret
 
 One actor. The demo account comes from the server settings `DEMO_EMAIL` and
 `DEMO_PASSWORD`. Store the password as a secret in Kintsugi QA.
@@ -53,7 +35,32 @@ One actor. The demo account comes from the server settings `DEMO_EMAIL` and
 2. Enter the email and a wrong password. The page shows "Wrong email or
    password."
 3. Enter the right password. The top bar shows "Signed in as ...".
-4. Create a room with your own quiz and tick "Keep this quiz in my account".
-5. Click "Close room", then open "Create a room" again. The quiz appears under
-   "My quizzes". Select it and click "Delete this quiz". It disappears from
-   the list.
+
+Other tests reuse this one as their first part (a dependency), the same way a
+real project has one sign-in test.
+
+## 4. Create a custom quiz, then play it
+
+Two actors: **Host** and **Player**. Only a signed-in host can make an own
+quiz, so the Host starts with scenario 3. Good for testing forms and their
+error messages.
+
+1. A host who is not signed in clicks "Create your own quiz" and lands on the
+   sign-in page with "Sign in to create your own quiz." After signing in the
+   quiz form opens.
+2. Host (signed in) opens the home page, chooses "Create a room", enters the
+   name "Hana" and clicks "Create your own quiz".
+3. Host enters the title "Capitals" and clicks "Play this quiz" with an empty
+   form. The page shows "Question 1 needs a text."
+4. Host fills in the question "Capital of Sweden?" with four answers, but does
+   not mark the correct one. The page shows "Question 1: mark the correct
+   answer."
+5. Host marks "Stockholm" as correct. Host clicks "Add question" and adds
+   "2 + 2?" with the correct answer "4". Host ticks "Keep this quiz in my
+   account".
+6. Host clicks "Play this quiz" and gets a room code. Player joins as "Ana".
+7. Host starts the game. Player answers both questions correctly and sees
+   "Correct!" and the leaderboard.
+8. Host clicks "Close room", then opens "Create a room" again. The quiz
+   appears under "My quizzes". Select it and click "Delete this quiz". It
+   disappears from the list.

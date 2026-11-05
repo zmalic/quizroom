@@ -41,9 +41,10 @@ On the create page, "Create your own quiz" opens a form: a title and up to 10
 questions with four different answers each, and one marked as correct. The page
 explains what is wrong before it creates the room.
 
-A host can sign in to keep quizzes. There is one demo account. Set both
-`DEMO_EMAIL` and `DEMO_PASSWORD` on the server to turn sign-in on. Without them
-there is no sign-in button. Kept quizzes live in memory and are lost when the
+Only a signed-in host can make an own quiz and keep it. There is one demo
+account. Set both `DEMO_EMAIL` and `DEMO_PASSWORD` on the server to turn
+sign-in on. Without them there is no sign-in button and anyone can make an own
+quiz (handy when you run the app locally). Kept quizzes live in memory and are lost when the
 server restarts. An account keeps its 10 newest quizzes (saving the 11th drops
 the oldest), and a quiz can be deleted from the create page. Players never need an account.
 

@@ -16,6 +16,7 @@ let error = "";
 let connected = false;
 let auth: { enabled: boolean; user: string | null } = { enabled: false, user: null };
 let reconnectDelay = 1000;
+let afterSignIn: Screen = "home"; // "builder" when the host was sent to sign in first
 
 interface Draft {
   title: string;
@@ -247,7 +248,8 @@ function createForm(): HTMLElement {
           type: "button",
           onclick: () => {
             form.name = name.value;
-            go("builder");
+            if (auth.enabled && !auth.user) afterSignIn = "builder";
+            go(afterSignIn === "builder" ? "signin" : "builder");
           },
         },
         "Create your own quiz",
@@ -314,7 +316,10 @@ function signInForm(): HTMLElement {
         });
         if (res.ok) {
           // A new connection picks up the session and sends the saved quizzes.
-          screen = "home";
+          // Until the new hello arrives, so the builder is not sent back here.
+          auth = { enabled: true, user: email.value.trim().toLowerCase() };
+          screen = afterSignIn;
+          afterSignIn = "home";
           error = "";
           reconnectDelay = 0;
           ws?.close();
@@ -325,7 +330,13 @@ function signInForm(): HTMLElement {
       },
     },
     h("h1", {}, "Sign in"),
-    h("p", { class: "lead" }, "Hosts can sign in to keep their own quizzes. Players do not need an account."),
+    h(
+      "p",
+      { class: "lead" },
+      afterSignIn === "builder"
+        ? "Sign in to create your own quiz."
+        : "Hosts sign in to create and keep their own quizzes. Players do not need an account.",
+    ),
     h("div", {}, h("label", { for: "email" }, "Email"), email),
     h("div", {}, h("label", { for: "password" }, "Password"), password),
     errorLine(),
@@ -333,7 +344,18 @@ function signInForm(): HTMLElement {
       "div",
       { class: "row" },
       h("button", { class: look().primary, type: "submit" }, "Sign in"),
-      h("button", { type: "button", onclick: () => go("home") }, "Back"),
+      h(
+        "button",
+        {
+          type: "button",
+          onclick: () => {
+            const back = afterSignIn === "builder" ? "create" : "home";
+            afterSignIn = "home";
+            go(back);
+          },
+        },
+        "Back",
+      ),
     ),
   );
   queueMicrotask(() => (credentials.email ? password : email).focus());
@@ -615,6 +637,11 @@ function render(): void {
   if (state) {
     view = { lobby, question, reveal, finished }[state.phase](state);
   } else {
+    if (screen === "builder" && auth.enabled && !auth.user) {
+      // Signed out while building, or the session ended.
+      screen = "signin";
+      afterSignIn = "builder";
+    }
     view = { create: createForm, join: joinForm, signin: signInForm, builder: builderForm, home }[screen]();
   }
   root.replaceChildren(view);

@@ -158,11 +158,14 @@ export class Manager {
 
   private pickQuiz(client: Client, msg: Extract<ClientMessage, { type: "create" }>): Quiz {
     if (msg.custom !== undefined) {
+      // Own quizzes are for signed-in hosts. Without a demo account (local runs)
+      // anyone can make one.
+      if (this.accounts?.enabled && !client.user) throw new RoomError("SIGN_IN_REQUIRED", "Sign in to create your own quiz.");
       const check = validateQuiz(msg.custom);
       if (!check.ok) throw new RoomError("QUIZ_INVALID", check.error);
       const quiz: Quiz = { id: "c" + Math.random().toString(36).slice(2, 10), title: check.quiz.title, questions: check.quiz.questions.map((q) => ({ text: q.text, answers: q.answers as Quiz["questions"][number]["answers"], correct: q.correct })) };
       if (msg.save) {
-        if (!client.user || !this.accounts) throw new RoomError("SIGN_IN_REQUIRED", "Sign in to keep a quiz.");
+        if (!client.user || !this.accounts) throw new RoomError("SIGN_IN_REQUIRED", "Sign in to create your own quiz.");
         this.accounts.save(client.user, quiz, QUIZ_LIMITS.savedPerAccount);
         this.hello(client);
       }

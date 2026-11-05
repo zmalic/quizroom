@@ -89,61 +89,67 @@ answered, revealed). Assert the leaderboard: Ana and Bo both have 1000 points
 and rank 1, and Cy and Di have 0 points.
 ```
 
-## 3. Create your own quiz (forms and error messages)
+## 3. Sign in with a secret
 
 ```text
-Create a test "Own quiz with validation" with two actors: Host and Player. It
-is scenario 3 in docs/scenarios.md.
+Create a test "Sign in as demo host" with one actor, Host. It is scenario 3
+in docs/scenarios.md. Store the demo password as a Kintsugi secret named
+DEMO_PASSWORD in the project. The demo email is demo@kintsugi-qa.com and the
+password is demo-quizroom. This password is public on purpose (it is a shared
+demo account), so it is fine to use it here.
 
-Host opens "Create your own quiz" and submits the empty form. Check each error
-message in order: the missing title, the missing question text, the missing
-correct answer, and answers that are the same. The messages are in
-src/shared/validate.ts. Then Host builds a valid quiz of 2 questions, plays
-it with Player and Player answers both correctly.
-
-Use the exact error texts from the code in the assertions.
-```
-
-## 4. Dependency chain: create a room, then try to start it empty
-
-```text
-Create two tests and link them:
-- "Create a room" (one actor): create a room with the quiz "General knowledge"
-  and stop in the lobby.
-- "Host cannot start without players" depends on it with depends_on. It has one
-  actor, the host. It clicks "Start game" while nobody has joined, asserts the
-  exact error text from src/server/room.ts, and asserts that the lobby is
-  still shown.
-
-Read the section about depends_on and transition in llms.txt first. Note that
-depends_on can only be set with PUT after the test exists, and that the steps
-of the parent go to the first actor only. Run only the second test and check
-that the steps of the first one ran before it.
-```
-
-Note: a game cannot start with no players, and the host does not play. That is
-why this chain tests the refusal and not a solo game.
-
-## 5. Sign in with a secret
-
-```text
-Create a test "Sign in as demo host". Store the demo password as a Kintsugi
-secret named DEMO_PASSWORD in the project. The demo email is
-demo@kintsugi-qa.com and the password is demo-quizroom. This password is
-public on purpose (it is a shared demo account), so it is fine to use it here.
-
-The test: click Sign in, enter the email and a WRONG password and assert the
-error "Wrong email or password."; then enter the secret with
-{{SECRET_DEMO_PASSWORD}} and assert "Signed in as demo@kintsugi-qa.com".
-Create a quiz with a unique title (use {{RUN_ID:8}} in it), tick "Keep this
-quiz in my account" and play it. Then use "Close room" to go back to the home
-page and check that the quiz appears under "My quizzes" when you create the
-next room. The account keeps the newest 10 quizzes, so old runs do not fill
-it up.
+The test: open the home page, click Sign in, enter the email and a WRONG
+password and assert the error "Wrong email or password."; then enter the
+secret with {{SECRET_DEMO_PASSWORD}} and assert "Signed in as
+demo@kintsugi-qa.com". End on the home page, signed in. Other tests will
+start with this test, so do not do anything else in it.
 
 After the run, check that the password does not appear in the run result or
 the artifacts.
 ```
+
+## 4. Create your own quiz, after signing in (dependency)
+
+```text
+Only a signed-in host can create an own quiz. Create a test "Own quiz with
+validation" with two actors: Host and Player. It is scenario 4 in
+docs/scenarios.md. It depends on "Sign in as demo host" (prompt 3) with
+depends_on, so the Host is signed in before its own steps start.
+
+Read the section about depends_on and transition in llms.txt first. Note that
+depends_on can only be set with PUT after the test exists, and that the steps
+of the parent go to the first actor only, so Host must be the first actor.
+
+Host chooses "Create a room" and opens "Create your own quiz". Host submits
+the empty form. Check each error message in order: the missing title, the
+missing question text, the missing correct answer, and answers that are the
+same. The messages are in src/shared/validate.ts. Use the exact texts in the
+assertions. Then Host builds a valid quiz of 2 questions with a unique title
+(use {{RUN_ID:8}} in it), ticks "Keep this quiz in my account", plays it with
+Player, and Player answers both correctly. At the end Host clicks "Close
+room", opens "Create a room" again, finds the quiz under "My quizzes" and
+deletes it.
+
+Run only this test and check that the sign-in steps ran before its own steps.
+```
+
+## 5. Dependency chain: create a room, then try to start it empty
+
+```text
+Create two tests and link them with depends_on, as in prompt 4:
+- "Create a room" (one actor): create a room with the quiz "General knowledge"
+  and stop in the lobby.
+- "Host cannot start without players" depends on it. It has one actor, the
+  host. It clicks "Start game" while nobody has joined, asserts the exact
+  error text from src/server/room.ts, and asserts that the lobby is still
+  shown.
+
+Run only the second test and check that the steps of the first one ran before
+it.
+```
+
+Note: a game cannot start with no players, and the host does not play. That is
+why this chain tests the refusal and not a solo game.
 
 ## 6. Phone and other browsers
 
@@ -190,7 +196,7 @@ tests with several users or tests that set a browser or device. So:
 1. Make one more small test "Wrong room code" with ONE actor and no browser
    settings: open the home page, choose to join a room, enter the code 0000
    and a nickname, and assert the exact error text from src/server/manager.ts.
-   Then make a suite "QuizRoom smoke" with "Create a room" (prompt 4) and
+   Then make a suite "QuizRoom smoke" with "Create a room" (prompt 5) and
    "Wrong room code".
 2. Create a schedule for the multi-user test "Host and four players" (prompt 2)
    that runs every day at 07:00 in the time zone Europe/Stockholm. A schedule
@@ -237,27 +243,31 @@ with two names.
 This shows that the AI plans several browsers and the points where they wait
 for each other.
 
-### 9c. A form with errors (the probe)
+### 9c. Sign-in with a secret (the probe)
 
-```text
-On the home page the host chooses to create their own quiz. Submit the empty
-form and check that the page explains what is missing. Then fill in a title
-and one question with four different answers, mark the correct one and play
-the quiz.
-```
-
-### 9d. Sign-in with a secret
-
-Prompt 5 already made the secret `DEMO_PASSWORD`. If you skipped prompt 5, add
+Prompt 3 already made the secret `DEMO_PASSWORD`. If you skipped prompt 3, add
 it in the project (Secrets) with the value `demo-quizroom`. Then generate:
 
 ```text
 Sign in as the demo host with the email demo@kintsugi-qa.com and the stored
-secret DEMO_PASSWORD. Check that the top bar shows who is signed in. Then
-create a quiz and keep it in the account.
+secret DEMO_PASSWORD. Check that the top bar shows who is signed in. End on
+the home page.
 ```
 
 Open the run and check that the password is masked everywhere.
+
+### 9d. A form with errors, after signing in (the probe with a dependency)
+
+Only a signed-in host can create an own quiz. Generate a test and set
+"Depends On" to the sign-in test from 9c, so the AI starts from a signed-in
+host. Then paste:
+
+```text
+On the home page the host chooses to create a room and then their own quiz.
+Submit the empty form and check that the page explains what is missing. Then
+fill in a title and one question with four different answers, mark the
+correct one and play the quiz. The host sees the room code in the lobby.
+```
 
 ### 9e. Step by step in the editor (authoring)
 
@@ -283,18 +293,19 @@ wrong room code, and see the message arrive.
 
 | Kintsugi feature | Prompt |
 |---|---|
-| Single and multi-user tests | 1, 2, 3 |
+| Single and multi-user tests | 1, 2, 3, 4 |
 | Barriers and handing a value between users | 1, 2 |
-| Variables, extract, assertions (text, number) | 1, 2, 3 |
-| Forms and error messages | 3 |
-| Dependency chain (`depends_on`) | 4 |
-| Secrets (masked values) | 5 |
+| Variables, extract, assertions (text, number) | 1, 2, 4 |
+| Forms and error messages | 4 |
+| Sign-in test reused by other tests (`depends_on`) | 4, 9d |
+| Dependency chain (`depends_on`) | 4, 5 |
+| Secrets (masked values) | 3 |
 | Browsers and phone devices | 6 |
 | Self-healing | 7 |
 | Suites (single-user tests in Chromium only) | 8 |
 | Schedules and webhooks | 8 |
-| AI test creation (probe), with one and many users | 9a, 9b, 9c |
-| Secrets in the app | 9d |
+| AI test creation (probe), with one and many users | 9a, 9b, 9c, 9d |
+| Secrets in the app | 9c |
 | Step by step editor (authoring) | 9e |
 | Regenerate after a redesign | 9f |
 | Environments, schedules, notification channels | 9g |

@@ -195,13 +195,27 @@ describe("serving", () => {
 describe("custom quizzes and sign-in", () => {
   const body = { title: "My quiz", questions: [{ text: "Pick B", answers: ["a", "b", "c", "d"], correct: 1 }] };
 
+  const signIn = async () => {
+    const ok = await fetch(`http://127.0.0.1:${port}/api/login`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ email: "demo@example.com", password: "s3cret" }) });
+    return ok.headers.get("set-cookie")!.split(";")[0]!;
+  };
+
+  it("refuses a custom quiz from a host who is not signed in", async () => {
+    const anon = await peer();
+    anon.send({ type: "create", name: "Hana", custom: body });
+    await new Promise((r) => setTimeout(r, 100));
+    expect(anon.errors).toContain("SIGN_IN_REQUIRED");
+    expect(anon.state).toBeNull();
+  });
+
   it("plays a custom quiz and refuses a bad one with a clear message", async () => {
-    const bad = await peer();
+    const cookie = await signIn();
+    const bad = await peer(cookie);
     bad.send({ type: "create", name: "Hana", custom: { ...body, title: "" } });
     await new Promise((r) => setTimeout(r, 100));
     expect(bad.errors).toContain("QUIZ_INVALID");
 
-    const host = await peer();
+    const host = await peer(cookie);
     host.send({ type: "create", name: "Hana", custom: body });
     const lobby = await host.until((s) => s.phase === "lobby");
     expect(lobby.quizTitle).toBe("My quiz");
