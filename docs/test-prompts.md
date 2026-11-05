@@ -18,9 +18,9 @@ is not.
    in your shell, never in a file in this repo and never inside a prompt:
    ```sh
    export KINTSUGI_API_KEY=ksk_...
-   export QUIZ_DEMO_PASSWORD=...     # only for prompt 5
    ```
-2. Start Claude Code in this folder: `claude`.
+2. Start Claude Code in this folder, from the same terminal: `claude`. A
+   variable exported in another terminal does not reach it.
 3. Paste the **common start** first. Then paste one prompt.
 
 ## Common start (paste this first, once per session)
@@ -79,10 +79,14 @@ correctly, Cy answers wrong, Di does not answer. When the time is up everyone
 sees the result and the same leaderboard. Host clicks "Next question" and all
 see question 2.
 
+Use ?fast=1&seed=123&flat=1 on the first page. With flat=1 every correct
+answer is worth 1000 points, so Ana and Bo get the same score. Without it,
+points depend on how fast they answer.
+
 Compute the expected question and correct answer for seed 123 from the code.
 Do not hard code guesses. Use barriers for each shared moment (joined, started,
-answered, revealed). Assert the leaderboard: Ana and Bo have the same rank and
-more points than Cy and Di, and Cy and Di have 0 points.
+answered, revealed). Assert the leaderboard: Ana and Bo both have 1000 points
+and rank 1, and Cy and Di have 0 points.
 ```
 
 ## 3. Create your own quiz (forms and error messages)
@@ -124,15 +128,21 @@ why this chain tests the refusal and not a solo game.
 
 ```text
 Create a test "Sign in as demo host". Store the demo password as a Kintsugi
-secret named DEMO_PASSWORD, with the value from the environment variable
-QUIZ_DEMO_PASSWORD (do not print it). The demo email is demo@kintsugi-qa.com.
+secret named DEMO_PASSWORD in the project. The demo email is
+demo@kintsugi-qa.com and the password is demo-quizroom. This password is
+public on purpose (it is a shared demo account), so it is fine to use it here.
 
 The test: click Sign in, enter the email and a WRONG password and assert the
-error "Wrong email or password."; then enter the secret with {{SECRET_DEMO_PASSWORD}} and assert
-"Signed in as demo@kintsugi-qa.com". Create a quiz, tick "Keep this quiz in my
-account" and check that it appears under "My quizzes" when you create the next
-room. After the run, check that the password does not appear in the run
-result or the artifacts.
+error "Wrong email or password."; then enter the secret with
+{{SECRET_DEMO_PASSWORD}} and assert "Signed in as demo@kintsugi-qa.com".
+Create a quiz with a unique title (use {{RUN_ID:8}} in it), tick "Keep this
+quiz in my account" and play it. Then use "Close room" to go back to the home
+page and check that the quiz appears under "My quizzes" when you create the
+next room. The account keeps the newest 10 quizzes, so old runs do not fill
+it up.
+
+After the run, check that the password does not appear in the run result or
+the artifacts.
 ```
 
 ## 6. Phone and other browsers
@@ -147,11 +157,9 @@ The app has a layout for small screens (answers go into one column). Add an
 assertion that proves the phone layout is used, for example that the four
 answer buttons are all visible without sideways scrolling.
 
-Run the three tests on their own. Do not put them in a suite: a suite runs in
-one browser session and cannot include a test with several users.
-
-Then make three small tests with ONE actor each (the home page and the join
-form, one test per browser) and put those in a suite "Browsers".
+Run the three tests on their own. Do not put them in a suite: a suite always
+runs in the default Chromium, so it cannot include a test with several users
+or a test that sets a browser or device.
 ```
 
 ## 7. Self-healing with the redesign
@@ -164,19 +172,26 @@ The app has a redesign switch: ?v=2 changes texts, order, classes and ids but
 not the logic. Read src/client/copy.ts to see exactly what changes. Run
 "Heal demo" with ?v=2 on the first page, and watch the run: it should heal
 steps. When it is done, show me: which steps healed, the old and the new
-selector for each, and the healing explanation from healing_attempts. Then
-tell me which changes the healing could not handle, if any.
+selector for each, the outcome and the explanation from healing_attempts
+(saved or rejected, and why), and whether a new test version was saved.
 
-Do not fix the test yourself before the heal run.
+Then run it a second time with ?v=2. If the first run saved its fixes, this
+run should need fewer AI heals. Last, run it once without ?v=2. Tell me which
+changes the healing could not handle, if any.
+
+Do not fix the test yourself before the heal runs.
 ```
 
 ## 8. Suite, schedule and webhook
 
 ```text
-Suites cannot include tests with several users (they run in one browser
-session). So:
-1. Make a suite "QuizRoom smoke" from the single-user tests only: the three
-   small tests from prompt 6 and the test "Create a room" from prompt 4.
+A suite runs in one browser session in the default Chromium. It cannot include
+tests with several users or tests that set a browser or device. So:
+1. Make one more small test "Wrong room code" with ONE actor and no browser
+   settings: open the home page, choose to join a room, enter the code 0000
+   and a nickname, and assert the exact error text from src/server/manager.ts.
+   Then make a suite "QuizRoom smoke" with "Create a room" (prompt 4) and
+   "Wrong room code".
 2. Create a schedule for the multi-user test "Host and four players" (prompt 2)
    that runs every day at 07:00 in the time zone Europe/Stockholm. A schedule
    can run a test on its own, so it can run multi-user tests.
@@ -233,8 +248,8 @@ the quiz.
 
 ### 9d. Sign-in with a secret
 
-First add a secret `DEMO_PASSWORD` in the project (Secrets) with the demo
-password. Then generate:
+Prompt 5 already made the secret `DEMO_PASSWORD`. If you skipped prompt 5, add
+it in the project (Secrets) with the value `demo-quizroom`. Then generate:
 
 ```text
 Sign in as the demo host with the email demo@kintsugi-qa.com and the stored
@@ -276,7 +291,7 @@ wrong room code, and see the message arrive.
 | Secrets (masked values) | 5 |
 | Browsers and phone devices | 6 |
 | Self-healing | 7 |
-| Suites (single-user tests only) | 6, 8 |
+| Suites (single-user tests in Chromium only) | 8 |
 | Schedules and webhooks | 8 |
 | AI test creation (probe), with one and many users | 9a, 9b, 9c |
 | Secrets in the app | 9d |
