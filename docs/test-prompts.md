@@ -121,10 +121,9 @@ depends_on can only be set with PUT after the test exists, and that the steps
 of the parent go to the first actor only, so Host must be the first actor.
 
 Host chooses "Create a room" and opens "Create your own quiz". Host submits
-the empty form. Check each error message in order: the missing title, the
-missing question text, the missing correct answer, and answers that are the
-same. The messages are in src/shared/validate.ts. Use the exact texts in the
-assertions. Then Host builds a valid quiz of 2 questions with a unique title
+the empty form, then fixes one problem at a time and checks each error
+message on the way. The messages and the order in which they appear are in
+src/shared/validate.ts. Use the exact texts in the assertions. Then Host builds a valid quiz of 2 questions with a unique title
 (use {{RUN_ID:8}} in it), ticks "Keep this quiz in my account", plays it with
 Player, and Player answers both correctly. At the end Host clicks "Close
 room", opens "Create a room" again, finds the quiz under "My quizzes" and
@@ -159,9 +158,10 @@ Firefox, WebKit, and a phone (pick an iPhone or Pixel device from
 GET /meta/browser-options). On the phone, only the Player is on the phone; the
 Host stays on a desktop browser (device can be set for each actor).
 
-The app has a layout for small screens (answers go into one column). Add an
-assertion that proves the phone layout is used, for example that the four
-answer buttons are all visible without sideways scrolling.
+The app has a layout for small screens (answers go into one column). On the
+phone, assert that all four answer buttons are visible. Kintsugi cannot
+measure layout, so this is the check. Keep it short: with ?fast=1 a question
+lasts 10 seconds, and every step with a selector takes about a second.
 
 Run the three tests on their own. Do not put them in a suite: a suite always
 runs in the default Chromium, so it cannot include a test with several users
@@ -175,14 +175,18 @@ Make a copy of the test from prompt 1 and call it "Heal demo". Do not change
 its selectors.
 
 The app has a redesign switch: ?v=2 changes texts, order, classes and ids but
-not the logic. Read src/client/copy.ts to see exactly what changes. Run
-"Heal demo" with ?v=2 on the first page, and watch the run: it should heal
+not the logic. Read src/client/copy.ts to see exactly what changes. To switch
+it without editing the test: add a project variable LOOK (value 1) and an
+environment "redesign" where LOOK is 2, and use &v={{ENV:LOOK}} in the first
+URL of each actor. That URL change is the only change allowed. Run
+"Heal demo" in the "redesign" environment, and watch the run: it should heal
 steps. When it is done, show me: which steps healed, the old and the new
 selector for each, the outcome and the explanation from healing_attempts
 (saved or rejected, and why), and whether a new test version was saved.
 
-Then run it a second time with ?v=2. If the first run saved its fixes, this
-run should need fewer AI heals. Last, run it once without ?v=2. Tell me which
+Then run it a second time in "redesign". If the first run saved its fixes,
+this run should need fewer AI heals. Last, run it once without an
+environment (the classic look). Tell me which
 changes the healing could not handle, if any.
 
 Do not fix the test yourself before the heal runs.
@@ -197,12 +201,16 @@ tests with several users or tests that set a browser or device. So:
    settings: open the home page, choose to join a room, enter the code 0000
    and a nickname, and assert the exact error text from src/server/manager.ts.
    Then make a suite "QuizRoom smoke" with "Create a room" (prompt 5) and
-   "Wrong room code".
+   "Wrong room code". The suite runs both in one browser, and the app keeps
+   the open room in the tab, so start "Wrong room code" with an optional
+   step that clicks "Close room".
 2. Create a schedule for the multi-user test "Host and four players" (prompt 2)
-   that runs every day at 07:00 in the time zone Europe/Stockholm. A schedule
-   can run a test on its own, so it can run multi-user tests.
+   that runs every day at 07:00 in the time zone Europe/Stockholm, and create
+   it disabled (enabled: false), so it does not run every day by itself. A
+   schedule can run a test on its own, so it can run multi-user tests.
 3. Create a webhook token for the same test and show me the curl command that
-   triggers it (do not print the token in the chat; tell me where I can find it).
+   triggers it. Do not print the token: it is in the token's `token` field,
+   and in the Kintsugi app on the project's Webhooks page ("Copy URL").
 4. Run the suite once and trigger the test once with the webhook. Wait for both
    results.
 
@@ -284,7 +292,7 @@ and new steps.
 ### 9g. Environments, schedule and notifications
 
 These are settings, not tests, but they belong to the story. In the project:
-add the environments `classic` and `redesign` (the second one with `?v=2`),
+look at the environment `redesign` from prompt 7 (it sets LOOK to 2),
 make a schedule for the suite from prompt 8, and add a notification channel
 (Slack or a webhook URL). Then let a run fail on purpose, for example with a
 wrong room code, and see the message arrive.
