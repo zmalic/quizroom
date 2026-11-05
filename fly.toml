@@ -1,4 +1,5 @@
-# Fly.io settings. Change `app` to the real app name before the first deploy.
+# An example deployment on Fly.io. The app does not need it: any host that
+# runs the Docker image works. Change `app` to your own app name to use it.
 app = "quizroom-demo"
 primary_region = "arn" # Stockholm
 
