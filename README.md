@@ -111,3 +111,15 @@ The health check is `GET /healthz`.
 ## License
 
 MIT
+
+## Demo bug switches
+
+For showing a failing test, an address like `/b/leaderboard/?fast=1` opens the
+same app with one known bug on. The normal address never has a bug.
+
+| Switch | Bug |
+|---|---|
+| `leaderboard` | The leaderboard leaves out the last player. |
+
+In a testing tool, add an environment whose base URL is
+`https://demo.kintsugi-qa.com/b/leaderboard` and run the same test there.

@@ -3,6 +3,17 @@ import { LOOKS, type Look } from "./copy.js";
 import { validateQuiz, QUIZ_LIMITS, type CustomQuestion } from "../shared/validate.js";
 import { h } from "./dom.js";
 
+/**
+ * Demo bug switches for testing tools: an address like /b/leaderboard/?fast=1
+ * turns on one known bug, so a test can be shown failing on a "broken release".
+ * The normal address (/) never has a bug.
+ *  - leaderboard: the leaderboard leaves out the last player.
+ */
+const bugMatch = location.pathname.match(/^\/b\/([a-z-]{1,30})(?=\/|$)/);
+const BUG = bugMatch ? bugMatch[1] : "";
+const PREFIX = bugMatch ? `/b/${BUG}` : "";
+const PATH = location.pathname.slice(PREFIX.length) || "/";
+
 const SHAPES = ["▲", "◆", "●", "■"];
 const SESSION_KEY = "quizroom-session";
 
@@ -11,7 +22,7 @@ type Screen = "home" | "create" | "join" | "signin" | "builder";
 let ws: WebSocket | null = null;
 let quizzes: QuizInfo[] = [];
 let state: RoomState | null = null;
-let screen: Screen = location.pathname.startsWith("/r/") ? "join" : "home";
+let screen: Screen = PATH.startsWith("/r/") ? "join" : "home";
 let error = "";
 let connected = false;
 let auth: { enabled: boolean; user: string | null } = { enabled: false, user: null };
@@ -28,7 +39,7 @@ let draft: Draft = { title: "", questions: [emptyQuestion()], save: false };
 const credentials = { email: "", password: "" }; // kept while typing: a message from the server redraws the form
 let deadline = 0;
 let ticker: number | undefined;
-const form = { name: "", quiz: "", code: (location.pathname.split("/")[2] ?? "").toUpperCase(), nickname: "" };
+const form = { name: "", quiz: "", code: (PATH.split("/")[2] ?? "").toUpperCase(), nickname: "" };
 
 const params = new URLSearchParams(location.search);
 
@@ -97,7 +108,7 @@ function onMessage(m: ServerMessage): void {
       save(null);
       state = null;
       screen = "home";
-      history.replaceState(null, "", "/" + location.search);
+      history.replaceState(null, "", PREFIX + "/" + location.search);
       error = m.reason === "closed" ? "The host closed the room." : "";
       break;
     case "state":
@@ -472,7 +483,7 @@ function playerList(s: RoomState): HTMLElement {
 
 function lobby(s: RoomState): HTMLElement {
   const L = look();
-  const link = `${location.origin}/r/${s.code}`;
+  const link = `${location.origin}${PREFIX}/r/${s.code}`;
   const codeBlock = h(
     "div",
     { class: "card stack" },
@@ -534,7 +545,7 @@ function board(s: RoomState): HTMLElement {
   return h(
     "ol",
     { class: "board", "aria-label": "Leaderboard" },
-    ...s.leaderboard.map((r) =>
+    ...(BUG === "leaderboard" && s.leaderboard.length >= 3 ? s.leaderboard.slice(0, -1) : s.leaderboard).map((r) =>
       h(
         "li",
         { class: s.you?.id === r.id ? "you" : "" },
@@ -619,7 +630,7 @@ function finished(s: RoomState): HTMLElement {
             save(null);
             state = null;
             screen = "home";
-            history.replaceState(null, "", "/" + location.search);
+            history.replaceState(null, "", PREFIX + "/" + location.search);
             render();
           },
         },

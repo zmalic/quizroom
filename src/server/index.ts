@@ -135,7 +135,9 @@ export function start(port = config.port, accounts = new Accounts(process.env.DE
       return json(res, 200, { ok: true }, { "Set-Cookie": `${SESSION_COOKIE}=; HttpOnly; SameSite=Lax; Path=/; Max-Age=0` });
     }
     // A join link looks like /r/ABC234. The page reads the code from the address.
-    if (url.pathname === "/" || /^\/r\/[A-Za-z0-9]{1,12}$/.test(url.pathname)) {
+    // /b/<bug>/... is the same page with one demo bug on (see src/client/main.ts).
+    const page = url.pathname.replace(/^\/b\/[a-z-]{1,30}(?=\/|$)/, "") || "/";
+    if (page === "/" || /^\/r\/[A-Za-z0-9]{1,12}$/.test(page)) {
       return serveFile(res, join(publicDir, "index.html"));
     }
     let decoded: string;
