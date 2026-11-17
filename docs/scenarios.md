@@ -8,7 +8,7 @@ redesigned interface (same logic, other texts and ids) and to try self-healing.
 
 Two actors: **Host** and **Player**.
 
-1. Host opens the home page, chooses "Create a room", enters the name "Hana",
+1. Host opens the home page, chooses "Create a room", enters the name "Hannah",
    picks "Web basics" and creates the room. Host saves the room code.
 2. Player opens the join link, enters the nickname "Ana" and joins.
 3. Host sees "Ana" in the player list and clicks "Start game".
@@ -49,7 +49,7 @@ error messages.
    sign-in page with "Sign in to create your own quiz." After signing in the
    quiz form opens.
 2. Host (signed in) opens the home page, chooses "Create a room", enters the
-   name "Hana" and clicks "Create your own quiz".
+   name "Hannah" and clicks "Create your own quiz".
 3. Host enters the title "Capitals" and clicks "Play this quiz" with an empty
    form. The page shows "Question 1 needs a text."
 4. Host fills in the question "Capital of Sweden?" with four answers, but does

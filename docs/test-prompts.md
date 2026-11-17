@@ -56,7 +56,7 @@ Rules:
 Create a test "Join and answer" with two actors: Host and Player. It is
 scenario 1 in docs/scenarios.md.
 
-Host creates a room (name Hana, quiz "Web basics") and reads the room code
+Host creates a room (name Hannah, quiz "Web basics") and reads the room code
 into a variable. Player opens the app, joins with that code as "Ana". Host sees
 Ana in the list and starts the game. Player answers the first question and
 sees a result and the leaderboard.
