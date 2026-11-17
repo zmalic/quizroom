@@ -61,7 +61,7 @@ into a variable. Player opens the app, joins with that code as "Ana". Host sees
 Ana in the list and starts the game. Player answers the first question and
 sees a result and the leaderboard.
 
-Use a barrier so Player joins only after the code is known. Check the result
+Use a wait point so Player joins only after the code is known. Check the result
 with an assertion: from the code, work out the first question for seed 123 and
 the correct answer, then make Player pick the correct one and assert the text
 "Correct!".
@@ -84,7 +84,7 @@ answer is worth 1000 points, so Ana and Bo get the same score. Without it,
 points depend on how fast they answer.
 
 Compute the expected question and correct answer for seed 123 from the code.
-Do not hard code guesses. Use barriers for each shared moment (joined, started,
+Do not hard code guesses. Use a wait point for each shared moment (joined, started,
 answered, revealed). Assert the leaderboard: Ana and Bo both have 1000 points
 and rank 1, and Cy and Di have 0 points.
 ```
@@ -302,7 +302,7 @@ wrong room code, and see the message arrive.
 | Kintsugi feature | Prompt |
 |---|---|
 | Single and multi-user tests | 1, 2, 3, 4 |
-| Barriers and handing a value between users | 1, 2 |
+| Wait points and handing a value between users | 1, 2 |
 | Variables, extract, assertions (text, number) | 1, 2, 4 |
 | Forms and error messages | 4 |
 | Sign-in test reused by other tests (`depends_on`) | 4, 9d |
